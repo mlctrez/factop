@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+option go_package = "./api";
+
+package api;
+
+message Empty {}
+
+service Command {
+  rpc Execute (CommandPayload) returns (CommandResult) {}
+}
+
+message CommandPayload {
+  string command = 1;
+}
+
+message CommandResult {
+  string payload = 1;
+}
+
+service Rcon {
+  rpc Execute (RconCommand) returns (RconResult) {}
+}
+
+message RconCommand {
+  string payload = 1;
+}
+
+message RconResult {
+  string payload = 1;
+}
+
+service SoftMod {
+  rpc ApplySoftMod (SoftModRequest) returns (Empty) {}
+}
+
+message SoftModRequest {
+  bytes payload = 1;
+  bool skipRestart = 2;
+}
+
+service Settings {
+  rpc ServerAdmins (ServerAdminsType) returns (ServerAdminsType) {}
+}
+
+message ServerAdminsType {
+  bool write = 1;
+  repeated string admin = 2;
+}
+
+
+

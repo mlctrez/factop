@@ -6,6 +6,10 @@ for _, ent in pairs(surface.find_entities_filtered({
     force = "player"
 })) do
     if ent ~= nil then
+        local driver = ent.get_driver()
+        if driver ~= nil then
+            driver.destroy()
+        end
         ent.destroy()
     end
 end

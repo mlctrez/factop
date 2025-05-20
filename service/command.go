@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"github.com/mlctrez/factop/api"
+	"github.com/mlctrez/factop/service/downloader"
 	"github.com/mlctrez/servicego"
 )
 
@@ -35,6 +36,15 @@ func (c *Command) Execute(ctx context.Context, req *api.CommandPayload) (*api.Co
 		return &api.CommandResult{}, c.Factorio.Restart()
 	case "reset":
 		return &api.CommandResult{}, c.Factorio.Reset()
+	case "latest":
+		go func() {
+			err := downloader.CheckLatest()
+			if err != nil {
+				c.Errorf("downloader error: %v", err)
+			}
+		}()
+		return &api.CommandResult{}, nil
+
 	default:
 		usage := "available commands: status, stop, restart, reset"
 		return &api.CommandResult{}, errors.New(usage)

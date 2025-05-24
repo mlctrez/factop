@@ -22,12 +22,22 @@ if player.connected then
     ammo[3].set_stack { name = "flamethrower-ammo", quality = "legendary", count = 100 }
 
     local main_inventory = char.get_inventory(defines.inventory.character_main)
-    local destroyer_count = 1000 - main_inventory.get_item_count({ name = "destroyer-capsule", quality = "legendary" })
-    if destroyer_count > 0 then
-        main_inventory.insert { name = "destroyer-capsule", count = destroyer_count, quality = "legendary" }
-    end
 
-    player.set_quick_bar_slot(1, { name = "destroyer-capsule", quality = "legendary" })
+    local equip_inventory = function(name, count, q_pos)
+        local insert_count = count - main_inventory.get_item_count({ name = name, quality = "legendary" })
+        if insert_count > 0 then
+            main_inventory.insert { name = name, count = insert_count, quality = "legendary" }
+        end
+        player.set_quick_bar_slot(q_pos, { name = name, quality = "legendary" })
+    end
+    equip_inventory("poison-capsule",200,1)
+    equip_inventory("slowdown-capsule",200,2)
+    equip_inventory("defender-capsule",200,3)
+    equip_inventory("destroyer-capsule",200,4)
+    equip_inventory("distractor-capsule",200,5)
+    equip_inventory("explosive-rocket",800,6)
+    equip_inventory("repair-pack",100,7)
+
 
     local ch_armor = char.get_inventory(defines.inventory.character_armor)
     if ch_armor ~= nil then
@@ -50,7 +60,7 @@ if player.connected then
         for _ = 1, 7 do
             stack.grid.put({ name = "exoskeleton-equipment", quality = "legendary" })
         end
-        for _ = 1, 7 do
+        for _ = 1, 16 do
             stack.grid.put({ name = "energy-shield-mk2-equipment", quality = "legendary" })
             stack.grid.put({ name = "personal-laser-defense-equipment", quality = "legendary" })
         end

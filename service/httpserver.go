@@ -24,7 +24,10 @@ func (w *WebServer) Start(s *Service) error {
 }
 
 func (w *WebServer) Stop() error {
-	return w.server.Close()
+	if w.server != nil {
+		return w.server.Close()
+	}
+	return nil
 }
 
 func (w *WebServer) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

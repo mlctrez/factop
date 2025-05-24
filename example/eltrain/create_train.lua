@@ -1,13 +1,14 @@
 local surface = game.get_surface(1)
 
 local loco = surface.create_entity({
-    force = "player", name = "locomotive", position = { 26, 0 },
-    create_build_effect_smoke = false, direction = defines.direction.south,
+    force = "player", name = "locomotive", position = { 31, 0 },
+    create_build_effect_smoke = false,
+    direction = defines.direction.south,
     move_stuck_players = true
 })
 if loco ~= nil then
     loco.destructible = false
-    loco.insert({ name = "nuclear-fuel", count = 5 })
+    loco.insert({ name = "rocket-fuel", count = 2 })
     local character = surface.create_entity{ name = "character", position = loco.position, force = "player" }
     loco.set_driver(character)
     character.riding_state = { acceleration = defines.riding.acceleration.accelerating, direction = defines.riding.direction.straight }

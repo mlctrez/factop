@@ -13,16 +13,19 @@ func main() {
 	ex.RconSc(destroyTrain)
 	ex.RconSc(destroyRail)
 	time.Sleep(10 * time.Second)
-	ex.RconSc(createRail)
 
 	for {
-		time.Sleep(1 * time.Second)
-		for i := 0; i < 5; i++ {
+		ex.RconSc(createRail)
+		time.Sleep(10 * time.Second)
+		for i := 0; i < 4; i++ {
 			ex.RconSc(createTrain)
-			time.Sleep(400 * time.Millisecond)
+			time.Sleep(550 * time.Millisecond)
 		}
-		time.Sleep(30 * time.Second)
+		time.Sleep(60 * time.Second)
 		ex.RconSc(destroyTrain)
+		time.Sleep(10 * time.Second)
+		ex.RconSc(destroyRail)
+		time.Sleep(10 * time.Second)
 	}
 
 }

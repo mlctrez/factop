@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const Host = "factorio"
@@ -19,7 +20,7 @@ const Host = "factorio"
 var Default = Softmod
 
 // prevent function names from being greyed out in IDE
-var _ = []interface{}{Default, Protoc, Service, Softmod, Command, Rcon}
+var _ = []interface{}{Default, Protoc, Service, Softmod, Command, Rcon, PRcon}
 
 func Protoc() (err error) {
 	if err = sh.Run("protoc", "--go_out=.", "--nrpc_out=.", "api/api.proto"); err != nil {
@@ -100,6 +101,21 @@ func Command(name string) (err error) {
 	}
 	if result.Payload != "" {
 		fmt.Println(result.Payload)
+	}
+	return nil
+}
+
+func PRcon(delay int, path string) (err error) {
+	ticker := time.NewTicker(time.Duration(delay) * time.Second)
+	defer ticker.Stop()
+	if err = Rcon(path); err != nil {
+		return err
+	}
+
+	for range ticker.C {
+		if err = Rcon(path); err != nil {
+			return err
+		}
 	}
 	return nil
 }

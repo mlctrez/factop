@@ -26,3 +26,33 @@ factop_tiles.set_tile = function(surface, x, y, name)
     s.set_tiles(tiles)
 end
 
+factop_tiles.tile_line = function(s, name, start_pos, end_pos, width)
+    local surface = game.surfaces[s]
+    if surface == nil then
+        error("no such game surface " .. s)
+    end
+    local dx = end_pos.x - start_pos.x
+    local dy = end_pos.y - start_pos.y
+    local length = (dx * dx + dy * dy) ^ 0.5
+    if length == 0 then
+        return
+    end
+    if width == nil then
+        width = 1
+    end
+
+    dx = dx / length
+    dy = dy / length
+    local px = -dy
+    local py = dx
+
+    local tiles = {}
+    for w = -width, width, 1 do
+        for t = 0, length, 1 do
+            local x = start_pos.x + t * dx + w * px
+            local y = start_pos.y + t * dy + w * py
+            table.insert(tiles, { name = name, position = { x, y } })
+        end
+    end
+    surface.set_tiles(tiles)
+end

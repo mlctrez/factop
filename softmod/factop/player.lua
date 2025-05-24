@@ -49,12 +49,39 @@ factop_player.changed_position = function(event)
     end
 end
 
-factop_player.selected_area = function(event)
-    print("factop_player.selected_area")
+factop_player.log_selected_area = function(name, event)
+    local r = {
+        item = event.item, player_index = event.player_index,
+        surface = event.surface.name, area = event.area
+    }
+    print("factop_player." .. name .. " -> " .. helpers.table_to_json(r))
 end
 
+-- https://lua-api.factorio.com/latest/events.html#on_player_selected_area
+factop_player.selected_area = function(event)
+    factop_player.log_selected_area("selected_area", event)
+end
+
+-- https://lua-api.factorio.com/latest/events.html#on_player_alt_selected_area
 factop_player.alt_selected_area = function(event)
-    print("factop_player.alt_selected_area")
+    factop_player.log_selected_area("alt_selected_area", event)
+end
+
+-- https://lua-api.factorio.com/latest/events.html#on_player_used_spidertron_remote
+factop_player.used_spidertron_remote = function(event)
+    local r = {
+        player_index = event.player_index, position = event.position
+    }
+    print("factop_player.used_spidertron_remote -> " .. helpers.table_to_json(r))
+end
+
+-- https://lua-api.factorio.com/latest/events.html#on_player_used_capsule
+factop_player.used_capsule = function(event)
+    local r = {
+        player_index = event.player_index, item = event.item.name,
+        position = event.position
+    }
+    print("factop_player.used_capsule -> " .. helpers.table_to_json(r))
 end
 
 factop_player.died = function(event)
@@ -88,6 +115,8 @@ factop_player.events = {
     [defines.events.on_player_changed_position] = factop_player.changed_position,
     [defines.events.on_player_selected_area] = factop_player.selected_area,
     [defines.events.on_player_alt_selected_area] = factop_player.alt_selected_area,
+    [defines.events.on_player_used_spidertron_remote] = factop_player.used_spidertron_remote,
+    [defines.events.on_player_used_capsule] = factop_player.used_capsule,
     [defines.events.on_player_died] = factop_player.died,
     [defines.events.on_player_respawned] = factop_player.respawned,
     [defines.events.on_player_left_game] = factop_player.left_game,

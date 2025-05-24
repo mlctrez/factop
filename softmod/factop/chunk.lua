@@ -1,11 +1,29 @@
 factop_chunk = {}
 
+-- https://lua-api.factorio.com/latest/events.html#on_chunk_generated
 factop_chunk.generated = function(event)
+    print("factop_chunk.generated ".. serpent.line(event.position))
+end
+
+-- https://lua-api.factorio.com/latest/events.html#on_chunk_charted
+factop_chunk.charted = function(event)
+    --print("factop_chunk.charted ".. serpent.line(event.position))
+end
+
+
+factop_chunk.generated_older = function(event)
     local position = event.position
-    -- only override chunk generation for tiles further from this radius
-    local chunk_radius = 6;
-    if position.x <= -chunk_radius or position.x >= (chunk_radius - 1) or
-            position.y <= -chunk_radius or position.y >= (chunk_radius - 1) then
+    -- skip for chunks inside this radius
+    local chunk_radius = 2;
+    local cx = position.x
+    local cy = position.y
+    if cx < 0 then
+        cx = cx + 1
+    end
+    if cy < 0 then
+        cy = cy + 1
+    end
+    if math.abs(cx) < chunk_radius and math.abs(cy) < chunk_radius then
         return
     end
     -- generated chunks are filled with lab tiles due to surface settings
@@ -20,9 +38,11 @@ factop_chunk.generated = function(event)
     event.surface.set_tiles(tiles, true)
 end
 
---commented out for now, as it interferes with free play chunk generation on nauvis
---factop_chunk.events = {
---    [defines.events.on_chunk_generated] = factop_chunk.generated
---}
 
+factop_chunk.events = {
+    [defines.events.on_chunk_generated] = factop_chunk.generated,
+    [defines.events.on_chunk_charted] = factop_chunk.charted
+}
+
+-- commented out for now, as it interferes with free play chunk generation on nauvis
 return factop_chunk

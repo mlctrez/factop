@@ -19,9 +19,4 @@ function fillArea(surface_name, left_top_x, left_top_y, right_bottom_x, right_bo
 end
 local min = -32
 local max = 31
---fillArea("nauvis", min, min, max, max, "refined-concrete")
-
-min = -225
-max = 224
-
-fillArea("nauvis", min, min, max, max, "refined-concrete")
+fillArea("nauvis", min, min, max, max, "volcanic-ash-flats")

@@ -20,6 +20,8 @@ Factorio operator.
     * A rcon connection is managed by the factop service and exposed via a [nrpc](github.com/nats-rpc/nrpc) api.
     * A mage build target for executing lua code via this rcon connection.
 
-### Softmod library
+### Softmod work
 
-* Code snippets for managing game state and performing automation on a running game.
+The code under softmod and examples are experiments and by no means are they complete. They are test cases
+and experiments. While some parts rely on the softmod code, most of the interactions require an external process.
+It is much easier to iterate to see what works without having to reload a mod each time.

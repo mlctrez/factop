@@ -27,15 +27,17 @@ func (c *Command) Stop() error {
 }
 
 func (c *Command) Execute(ctx context.Context, req *api.CommandPayload) (*api.CommandResult, error) {
+	result := &api.CommandResult{}
 	switch req.Command {
 	case "status":
-		return &api.CommandResult{Payload: c.Factorio.Status()}, nil
+		result.Payload = c.Factorio.Status()
+		return result, nil
 	case "stop":
-		return &api.CommandResult{}, c.Factorio.Stop()
+		return result, c.Factorio.Stop()
 	case "restart":
-		return &api.CommandResult{}, c.Factorio.Restart()
+		return result, c.Factorio.Restart()
 	case "reset":
-		return &api.CommandResult{}, c.Factorio.Reset()
+		return result, c.Factorio.Reset()
 	case "latest":
 		go func() {
 			err := downloader.CheckLatest()
@@ -43,10 +45,10 @@ func (c *Command) Execute(ctx context.Context, req *api.CommandPayload) (*api.Co
 				c.Errorf("downloader error: %v", err)
 			}
 		}()
-		return &api.CommandResult{}, nil
+		return result, nil
 
 	default:
 		usage := "available commands: status, stop, restart, reset"
-		return &api.CommandResult{}, errors.New(usage)
+		return result, errors.New(usage)
 	}
 }

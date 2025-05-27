@@ -73,7 +73,7 @@ func LatestReleases() (*Releases, error) {
 	return &releases, nil
 }
 
-// Releases represents the json document located at https://factorio.com/api/latest-releases
+// Releases is the structure of the JSON at https://factorio.com/api/latest-releases
 type Releases struct {
 	Experimental struct {
 		Alpha     string `json:"alpha"`

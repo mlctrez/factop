@@ -16,5 +16,7 @@ func TestFlib(t *testing.T) {
 		require.Equal(t, "true", rconPrint(c, "factop_flib ~= nil"))
 		assert.Equal(t, "true", rconPrint(c, "factop_flib.bounding_box ~= nil"))
 		assert.Equal(t, "true", rconPrint(c, "factop_flib.position ~= nil"))
+		assert.Equal(t, "true", rconPrint(c, "factop_flib.orientation ~= nil"))
+		assert.Equal(t, "true", rconPrint(c, "factop_flib.direction ~= nil"))
 	}))
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -50,6 +51,10 @@ func CreateZip(base string) (buffer *bytes.Buffer, err error) {
 
 	var controlLua *bytes.Buffer
 	controlLua, err = BuildControlLua()
+	if err != nil {
+		return nil, err
+	}
+	err = os.WriteFile("work/control.lua", controlLua.Bytes(), fs.ModePerm)
 	if err != nil {
 		return nil, err
 	}

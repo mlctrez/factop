@@ -62,49 +62,64 @@ wizard_merlin.goaway = function(player)
         merlin.destroy()
     end
 end
+
 wizard_merlin.cleanup = function(merlin, surface_name)
-    merlin.walking_state = { walking = false }
+    if merlin ~= nil then
+        merlin.walking_state = { walking = false }
+    end
     factop_storage.put(merlin_data, surface_name)
 end
 
 wizard_merlin.periodic = function()
-    -- need to track who merlin is following on each given surface
     local data = storage[merlin_data]
     if data == nil then
-        -- to early
         return
     end
     for _, surface_name in pairs(factop_storage.keys(data)) do
-        local s = game.surfaces[surface_name]
-        if s == nil then
-            return wizard_merlin.cleanup(merlin, surface_name)
+        local surface = game.surfaces[surface_name]
+        if surface ~= nil then
+            wizard_merlin.update_surface(surface)
+        else
+            wizard_merlin.cleanup(nil, surface_name)
         end
-        local follow_data = factop_storage.get(merlin_data, surface_name)
-        if follow_data ~= nil then
-            local merlin = wizard_merlin.find_merlin(s)
-            if merlin == nil then
-                return
-            end
-            -- move merlin towards player location
-            local player_index = follow_data.following
-            local player = game.players[player_index]
-            if player == nil or not player.valid or not player.connected then
-                return wizard_merlin.cleanup(merlin, surface_name)
-            end
+    end
+end
 
-            local distance = factop_flib.position.distance(merlin.position, player.position)
-            if distance > 60 then
-                player.print({ "merlin.message.distance" })
-                return wizard_merlin.cleanup(merlin, surface_name)
-            end
+wizard_merlin.update_surface = function(surface)
+    local surface_name = surface.name
+    local follow_data = factop_storage.get(merlin_data, surface_name)
+    if follow_data == nil then
+        return
+    end
 
-            if distance < 5 then
-                merlin.walking_state = { walking = false }
-            else
-                local walking_direction = factop_flib.direction.from_positions(merlin.position, player.position)
-                merlin.walking_state = { walking = true, direction = walking_direction }
-            end
-        end
+    local merlin = wizard_merlin.find_merlin(surface)
+    if merlin == nil then
+        return
+    end
+
+    local player_index = follow_data.following
+    local player = game.players[player_index]
+
+    if player == nil or not player.valid or not player.connected then
+        return wizard_merlin.cleanup(merlin, surface_name)
+    end
+    -- player moved between surfaces
+    if player.surface.name ~= surface_name then
+        return wizard_merlin.cleanup(merlin, surface_name)
+    end
+
+    -- move merlin towards player location
+    local distance = factop_flib.position.distance(merlin.position, player.position)
+    if distance > 60 then
+        player.print({ "merlin.message.distance" })
+        return wizard_merlin.cleanup(merlin, surface_name)
+    end
+
+    if distance < 5 then
+        merlin.walking_state = { walking = false }
+    else
+        local walking_direction = factop_flib.direction.from_positions(merlin.position, player.position)
+        merlin.walking_state = { walking = true, direction = walking_direction }
     end
 end
 

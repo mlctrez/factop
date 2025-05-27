@@ -1,6 +1,6 @@
 # Soft mod files for factorio operator ( factop )
 
-* https://github.com/mlctrez/factop/softmod
+* https://github.com/mlctrez/factop/tree/master/softmod
 
 ## contents
 

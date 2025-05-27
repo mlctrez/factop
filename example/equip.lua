@@ -4,6 +4,8 @@ local s = game.surfaces["nauvis"]
 
 local player = game.players[1]
 if player.connected then
+    player.force.research_all_technologies()
+
     if player.character == nil then
         player.character = s.create_entity { name = "character", position = { 0, 0 }, force = "player" }
     end
@@ -30,14 +32,13 @@ if player.connected then
         end
         player.set_quick_bar_slot(q_pos, { name = name, quality = "legendary" })
     end
-    equip_inventory("poison-capsule",200,1)
-    equip_inventory("slowdown-capsule",200,2)
-    equip_inventory("defender-capsule",200,3)
-    equip_inventory("destroyer-capsule",200,4)
-    equip_inventory("distractor-capsule",200,5)
-    equip_inventory("explosive-rocket",800,6)
-    equip_inventory("repair-pack",100,7)
-
+    equip_inventory("poison-capsule", 200, 1)
+    equip_inventory("slowdown-capsule", 200, 2)
+    equip_inventory("defender-capsule", 200, 3)
+    equip_inventory("destroyer-capsule", 200, 4)
+    equip_inventory("distractor-capsule", 200, 5)
+    equip_inventory("explosive-rocket", 800, 6)
+    equip_inventory("repair-pack", 100, 7)
 
     local ch_armor = char.get_inventory(defines.inventory.character_armor)
     if ch_armor ~= nil then

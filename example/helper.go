@@ -38,7 +38,7 @@ func (e *Example) Rcon(payload string) {
 }
 
 func (e *Example) Close() {
-	if e.NatsConn != nil {
+	if e != nil && e.NatsConn != nil {
 		e.NatsConn.Close()
 	}
 }

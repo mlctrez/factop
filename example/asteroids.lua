@@ -9,7 +9,7 @@ local createAsteroids = function(player, amount)
         local x_offset = range * math.cos(rad)
         local y_offset = range * math.sin(rad)
         player.surface.create_entity {
-            name = "metallic-asteroid-explosion-3",
+            name = "promethium-asteroid-explosion-5",
             position = { player.position.x + x_offset, player.position.y + y_offset },
             force = "player",
         }

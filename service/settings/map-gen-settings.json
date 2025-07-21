@@ -1,0 +1,33 @@
+{
+  "width": 10,
+  "height": 10,
+  "starting_area": 1,
+  "peaceful_mode": false,
+  "default_enable_all_autoplace_controls": false,
+  "autoplace_settings": {
+    "tile": {
+      "treat_missing_as_default": true,
+      "settings": {
+        "tutorial-grid": {
+          "frequency": 1,
+          "size": 1,
+          "richness": 1
+        }
+      }
+    }
+  },
+  "cliff_settings": {
+    "name": "",
+    "control": "",
+    "cliff_elevation_0": 0,
+    "cliff_elevation_interval": 0,
+    "richness": 1
+  },
+  "starting_points": [
+    {
+      "x": 0,
+      "y": 0
+    }
+  ],
+  "seed": null
+}

@@ -17,11 +17,5 @@ Factorio operator.
         * Administrative functions like resetting the map, etc.
     * A [nats](https://docs.nats.io/nats-concepts/what-is-nats) server is embedded in the factop service.
         * The Factorio stdin, stdout, and stderr are exposed as nats subjects.
-    * A rcon connection is managed by the factop service and exposed via a [nrpc](github.com/nats-rpc/nrpc) api.
+    * A rcon connection is managed by the factop service and exposed via a nats subject.
     * A mage build target for executing lua code via this rcon connection.
-
-### Softmod work
-
-The code under softmod and examples are experiments and by no means are they complete. They are test cases
-and experiments. While some parts rely on the softmod code, most of the interactions require an external process.
-It is much easier to iterate to see what works without having to reload a mod each time.

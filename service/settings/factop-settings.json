@@ -1,4 +1,8 @@
 {
   "Port": "34198",
-  "SaveLocation": "/opt/factorio/saves"
+  "SaveLocation": "/opt/factorio/saves",
+  "GamePort": 34198,
+  "RconBind": "127.0.0.1:3000",
+  "UDPIncoming": 4000,
+  "UDPOutgoing": 4001
 }

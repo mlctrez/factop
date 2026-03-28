@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/mlctrez/bind"
@@ -35,6 +36,9 @@ func (c *Command) handleCommand(msg *nats.Msg) {
 	switch parts[0] {
 	case "status":
 		c.Nats.Reply(msg, []byte(c.Factorio.Status()), nil)
+	case "start":
+		err := c.Factorio.Start()
+		c.Nats.Reply(msg, []byte(c.Factorio.Status()), err)
 	case "stop":
 		err := c.Factorio.Shutdown()
 		c.Nats.Reply(msg, []byte(c.Factorio.Status()), err)
@@ -53,17 +57,12 @@ func (c *Command) handleCommand(msg *nats.Msg) {
 		}()
 		c.Nats.Reply(msg, []byte("download started"), nil)
 	case "list-versions":
-		entries, err := os.ReadDir("/opt/factorio")
+		versions, err := versionDirs()
 		if err != nil {
 			c.Nats.Reply(msg, nil, err)
 			return
 		}
-		var versions []string
-		for _, entry := range entries {
-			if entry.IsDir() && versionRegex.MatchString(entry.Name()) {
-				versions = append(versions, entry.Name())
-			}
-		}
+		slices.Sort(versions)
 		c.Nats.Reply(msg, []byte(strings.Join(versions, "\n")), nil)
 	case "set-version":
 		if len(parts) < 2 {
@@ -84,7 +83,7 @@ func (c *Command) handleCommand(msg *nats.Msg) {
 		err := c.Factorio.Restart()
 		c.Nats.Reply(msg, []byte(fmt.Sprintf("version set to %s and restarting: %s", newVersion, c.Factorio.Status())), err)
 	default:
-		usage := "available commands: status, stop, restart, reset, latest, list-versions, set-version <version>"
+		usage := "available commands: status, start, stop, restart, reset, latest, list-versions, set-version <version>"
 		c.Nats.Reply(msg, nil, errors.New(usage))
 	}
 }

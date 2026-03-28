@@ -71,10 +71,13 @@ func printUsage() {
 	fmt.Println("  lrcon <path>      - Send RCON command to local RCON via NATS")
 }
 
+const WatchReconnectWait = 250 * time.Millisecond
+
 func Watch() (err error) {
 	var conn *nats.Conn
 	if conn, err = nats.Connect(fmt.Sprintf("nats://%s", Host),
 		nats.MaxReconnects(-1),
+		nats.ReconnectWait(WatchReconnectWait),
 		nats.DisconnectErrHandler(func(_ *nats.Conn, err error) {
 			if err != nil {
 				fmt.Printf("Disconnected: %v\n", err)
@@ -90,7 +93,7 @@ func Watch() (err error) {
 	}
 	defer conn.Close()
 
-	fmt.Println("watching factorio.* and udp.* ...")
+	fmt.Println("watching factorio.*, udp.*, factop.log ...")
 	_, err = conn.Subscribe("factorio.*", func(msg *nats.Msg) {
 		data := string(msg.Data)
 		if msg.Subject == "factorio.softmod" {
@@ -103,6 +106,13 @@ func Watch() (err error) {
 	}
 
 	_, err = conn.Subscribe("udp.*", func(msg *nats.Msg) {
+		fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Subscribe("factop.log", func(msg *nats.Msg) {
 		fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
 	})
 	if err != nil {

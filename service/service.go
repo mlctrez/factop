@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	kservice "github.com/kardianos/service"
@@ -11,10 +12,9 @@ import (
 
 type Service struct {
 	servicego.Defaults
-	binder  bind.Binder
-	Context context.Context
-	Cancel  context.CancelFunc
-	//holder *ContextHolder
+	binder      bind.Binder
+	Context     context.Context
+	CancelCause context.CancelCauseFunc
 }
 
 func Run() {
@@ -29,12 +29,15 @@ func Run() {
 func (sv *Service) Start(s kservice.Service) error {
 
 	//sv.holder = &ContextHolder{}
-	sv.Context, sv.Cancel = context.WithCancel(context.Background())
+	sv.Context, sv.CancelCause = context.WithCancelCause(context.Background())
 
 	sv.binder = bind.New()
 
+	logHandler := &LogHandler{Logger: sv.Log()}
+
 	components := []any{
-		slog.New(&LogHandler{Logger: sv.Log()}),
+		slog.New(logHandler),
+		logHandler,
 		sv.Context,
 		&Nats{},
 		&Settings{},
@@ -50,7 +53,7 @@ func (sv *Service) Start(s kservice.Service) error {
 }
 
 func (sv *Service) Stop(_ kservice.Service) error {
-	sv.Cancel()
+	sv.CancelCause(fmt.Errorf("service stop requested"))
 	if sv.binder != nil {
 		sv.binder.Shutdown()
 	}

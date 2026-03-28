@@ -29,9 +29,13 @@ type Settings struct {
 }
 
 type FactOpSettings struct {
-	Port            string
-	SaveLocation    string
-	FactorioVersion string
+	Port            string `json:"Port,omitzero"`
+	SaveLocation    string `json:"SaveLocation,omitzero"`
+	FactorioVersion string `json:"FactorioVersion,omitzero"`
+	GamePort        int    `json:"GamePort,omitzero"`
+	RconBind        string `json:"RconBind,omitzero"`
+	UDPIncoming     int    `json:"UDPIncoming,omitzero"`
+	UDPOutgoing     int    `json:"UDPOutgoing,omitzero"`
 }
 
 func (s *Settings) Startup() error {
@@ -79,16 +83,26 @@ func (s *Settings) Startup() error {
 
 var versionRegex = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
-func (s *Settings) detectLatest() (string, error) {
+// versionDirs returns the names of directories in /opt/factorio that match the
+// version pattern (e.g. "2.0.28"). The returned slice is unsorted.
+func versionDirs() ([]string, error) {
 	entries, err := os.ReadDir("/opt/factorio")
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	var versions []string
 	for _, entry := range entries {
 		if entry.IsDir() && versionRegex.MatchString(entry.Name()) {
 			versions = append(versions, entry.Name())
 		}
+	}
+	return versions, nil
+}
+
+func (s *Settings) detectLatest() (string, error) {
+	versions, err := versionDirs()
+	if err != nil {
+		return "", err
 	}
 	if len(versions) == 0 {
 		return "", errors.New("no local factorio versions found in /opt/factorio")
@@ -97,12 +111,39 @@ func (s *Settings) detectLatest() (string, error) {
 	return versions[len(versions)-1], nil
 }
 
+func (s *Settings) applyDefaults() bool {
+	changed := false
+	if s.Data.GamePort == 0 {
+		s.Data.GamePort = 34198
+		changed = true
+	}
+	if s.Data.RconBind == "" {
+		s.Data.RconBind = "127.0.0.1:3000"
+		changed = true
+	}
+	if s.Data.UDPIncoming == 0 {
+		s.Data.UDPIncoming = 4000
+		changed = true
+	}
+	if s.Data.UDPOutgoing == 0 {
+		s.Data.UDPOutgoing = 4001
+		changed = true
+	}
+	return changed
+}
+
 func (s *Settings) Load() error {
 	data, err := os.ReadFile(FactOpSettingsPath)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, &s.Data)
+	if err = json.Unmarshal(data, &s.Data); err != nil {
+		return err
+	}
+	if s.applyDefaults() {
+		return s.Save()
+	}
+	return nil
 }
 
 func (s *Settings) Save() error {

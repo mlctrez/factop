@@ -19,16 +19,13 @@ type UDPBridge struct {
 	slog.Logger
 	Context      context.Context
 	Nats         *Nats
+	Settings     *Settings
 	incomingConn *net.UDPConn
 	outgoingAddr *net.UDPAddr
-	ctx          context.Context
-	cancel       context.CancelFunc
 }
 
 func (u *UDPBridge) Startup() error {
-	u.ctx, u.cancel = context.WithCancel(u.Context)
-
-	incomingAddr, err := net.ResolveUDPAddr("udp4", "localhost:4000")
+	incomingAddr, err := net.ResolveUDPAddr("udp4", fmt.Sprintf("localhost:%d", u.Settings.Data.UDPIncoming))
 	if err != nil {
 		return fmt.Errorf("failed to resolve incoming UDP address: %w", err)
 	}
@@ -38,7 +35,7 @@ func (u *UDPBridge) Startup() error {
 		return fmt.Errorf("failed to listen on UDP address: %w", err)
 	}
 
-	u.outgoingAddr, err = net.ResolveUDPAddr("udp4", "localhost:4001")
+	u.outgoingAddr, err = net.ResolveUDPAddr("udp4", fmt.Sprintf("localhost:%d", u.Settings.Data.UDPOutgoing))
 	if err != nil {
 		return fmt.Errorf("failed to resolve outgoing UDP address: %w", err)
 	}
@@ -53,7 +50,6 @@ func (u *UDPBridge) Startup() error {
 }
 
 func (u *UDPBridge) Shutdown() error {
-	u.cancel()
 	u.close(u.incomingConn)
 	return nil
 }
@@ -62,14 +58,14 @@ func (u *UDPBridge) handleIncoming() {
 	incomingBuffer := make([]byte, 65535) // Max UDP packet size
 	for {
 		select {
-		case <-u.ctx.Done():
+		case <-u.Context.Done():
 			return
 		default:
 			n, _, err := u.incomingConn.ReadFromUDP(incomingBuffer)
 			if err != nil {
 				// Check if we're shutting down
 				select {
-				case <-u.ctx.Done():
+				case <-u.Context.Done():
 					return
 				default:
 					u.Error("Error reading from UDP", "error", err)

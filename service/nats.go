@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"slices"
 	"strconv"
 	"time"
 
@@ -18,9 +19,10 @@ var _ bind.Shutdown = (*Nats)(nil)
 
 type Nats struct {
 	slog.Logger
-	server *server.Server
-	conn   *nats.Conn
-	subs   []*nats.Subscription
+	LogHandler *LogHandler
+	server     *server.Server
+	conn       *nats.Conn
+	subs       []*nats.Subscription
 }
 
 func (n *Nats) Startup() error {
@@ -39,12 +41,21 @@ func (n *Nats) Startup() error {
 		return fmt.Errorf("in process connect error : %w", err)
 	}
 
+	n.LogHandler.SetNatsConn(n.conn)
+
 	return nil
 }
 
 func (n *Nats) Shutdown() error {
-	for i := len(n.subs) - 1; i >= 0; i-- {
-		n.unsubscribe(n.subs[i])
+	n.LogHandler.ClearNatsConn()
+
+	var errs []error
+	for _, sub := range slices.Backward(n.subs) {
+		if sub != nil {
+			if err := sub.Drain(); err != nil {
+				errs = append(errs, fmt.Errorf("draining subscription %s: %w", sub.Subject, err))
+			}
+		}
 	}
 	if n.conn != nil {
 		n.conn.Close()
@@ -52,19 +63,7 @@ func (n *Nats) Shutdown() error {
 	if n.server != nil {
 		n.server.Shutdown()
 	}
-	return nil
-}
-
-func (n *Nats) unsubscribe(sub *nats.Subscription) {
-	if sub != nil {
-		if err := sub.Drain(); err != nil {
-			n.Error("sub.Drain", "subject", sub.Subject, "error", err)
-		}
-
-		if err := sub.Unsubscribe(); err != nil {
-			n.Error("sub.Unsubscribe", "subject", sub.Subject, "error", err)
-		}
-	}
+	return errors.Join(errs...)
 }
 
 func (n *Nats) Subscribe(subject string, handler nats.MsgHandler) error {

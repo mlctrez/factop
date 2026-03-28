@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
+	"log/slog"
+
 	kservice "github.com/kardianos/service"
 	"github.com/mlctrez/bind"
 	"github.com/mlctrez/servicego"
-	"log/slog"
 )
 
 type Service struct {

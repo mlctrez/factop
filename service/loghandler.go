@@ -3,8 +3,9 @@ package service
 import (
 	"bytes"
 	"context"
-	"github.com/kardianos/service"
 	"log/slog"
+
+	"github.com/kardianos/service"
 )
 
 var _ slog.Handler = (*LogHandler)(nil)

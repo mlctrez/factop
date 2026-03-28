@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"fmt"
-	"github.com/mlctrez/bind"
-	"github.com/nats-io/nats.go"
 	"io"
 	"log/slog"
 	"net"
+
+	"github.com/mlctrez/bind"
+	"github.com/nats-io/nats.go"
 )
 
 var _ bind.Startup = (*UDPBridge)(nil)

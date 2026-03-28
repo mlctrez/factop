@@ -2,9 +2,10 @@ package service
 
 import (
 	"errors"
-	"github.com/mlctrez/bind"
 	"log/slog"
 	"net/http"
+
+	"github.com/mlctrez/bind"
 )
 
 var _ bind.Startup = (*WebServer)(nil)

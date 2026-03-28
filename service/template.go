@@ -1,8 +1,9 @@
 package service
 
 import (
-	"github.com/mlctrez/bind"
 	"log/slog"
+
+	"github.com/mlctrez/bind"
 )
 
 var _ bind.Startup = (*ComponentTemplate)(nil)

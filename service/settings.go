@@ -2,8 +2,9 @@ package service
 
 import (
 	_ "embed"
-	"github.com/mlctrez/bind"
 	"os"
+
+	"github.com/mlctrez/bind"
 )
 
 var _ bind.Startup = (*Settings)(nil)

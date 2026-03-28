@@ -4,14 +4,15 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/mlctrez/bind"
-	"github.com/nats-io/nats.go"
 	"io"
 	"log/slog"
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/google/uuid"
+	"github.com/mlctrez/bind"
+	"github.com/nats-io/nats.go"
 )
 
 var _ bind.Startup = (*Factorio)(nil)

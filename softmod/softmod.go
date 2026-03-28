@@ -15,6 +15,26 @@ import (
 type softmod struct {
 	writer *zip.Writer
 	base   string
+	temp   string
+}
+
+func (zu *softmod) Create(name string) (io.Writer, error) {
+	zipWriter, err := zu.writer.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	if zu.temp == "" {
+		return zipWriter, nil
+	}
+	filePath := filepath.Join(zu.temp, name)
+	if err = os.MkdirAll(filepath.Dir(filePath), fs.ModePerm); err != nil {
+		return nil, err
+	}
+	file, err := os.Create(filePath)
+	if err != nil {
+		return nil, err
+	}
+	return io.MultiWriter(zipWriter, file), nil
 }
 
 //go:embed README.md factop img locale
@@ -48,23 +68,28 @@ func CreateZip(base string) (buffer *bytes.Buffer, err error) {
 	buffer = new(bytes.Buffer)
 
 	zu := &softmod{writer: zip.NewWriter(buffer), base: base}
+	if info, statErr := os.Stat("temp"); statErr == nil && info.IsDir() {
+		zu.temp = "temp"
+		if err = os.RemoveAll(filepath.Join(zu.temp, base)); err != nil {
+			return nil, err
+		}
+	}
 
 	var controlLua *bytes.Buffer
 	controlLua, err = BuildControlLua()
 	if err != nil {
 		return nil, err
 	}
-	err = os.WriteFile("work/control.lua", controlLua.Bytes(), fs.ModePerm)
-	if err != nil {
-		return nil, err
-	}
 
 	var create io.Writer
-	if create, err = zu.writer.Create(base + "/control.lua"); err != nil {
+	if create, err = zu.Create(base + "/control.lua"); err != nil {
 		return nil, err
 	}
 	if _, err = create.Write(controlLua.Bytes()); err != nil {
 		return nil, err
+	}
+	if closer, ok := create.(io.Closer); ok {
+		_ = closer.Close()
 	}
 
 	if err = fs.WalkDir(files, ".", zu.walkDirFunc); err != nil {
@@ -88,9 +113,12 @@ func (zu *softmod) walkDirFunc(path string, info fs.DirEntry, err error) error {
 
 	newPath := filepath.Join(zu.base, path)
 
-	create, createErr := zu.writer.Create(newPath)
+	create, createErr := zu.Create(newPath)
 	if createErr != nil {
 		return createErr
+	}
+	if closer, ok := create.(io.Closer); ok {
+		defer func() { _ = closer.Close() }()
 	}
 
 	open, openErr := files.Open(path)

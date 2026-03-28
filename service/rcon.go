@@ -2,13 +2,14 @@ package service
 
 import (
 	"errors"
-	"github.com/mlctrez/bind"
-	"github.com/mlctrez/rcon"
-	"github.com/nats-io/nats.go"
 	"log/slog"
 	"regexp"
 	"strings"
 	"sync"
+
+	"github.com/mlctrez/bind"
+	"github.com/mlctrez/rcon"
+	"github.com/nats-io/nats.go"
 )
 
 var _ bind.Startup = (*Rcon)(nil)

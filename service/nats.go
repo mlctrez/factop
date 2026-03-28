@@ -3,13 +3,14 @@ package service
 import (
 	"errors"
 	"fmt"
-	"github.com/mlctrez/bind"
-	"github.com/nats-io/nats-server/v2/server"
-	"github.com/nats-io/nats.go"
 	"log/slog"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/mlctrez/bind"
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/nats-io/nats.go"
 )
 
 var _ bind.Startup = (*Nats)(nil)

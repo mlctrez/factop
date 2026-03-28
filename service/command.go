@@ -2,10 +2,11 @@ package service
 
 import (
 	"errors"
+	"log/slog"
+
 	"github.com/mlctrez/bind"
 	"github.com/mlctrez/factop/service/downloader"
 	"github.com/nats-io/nats.go"
-	"log/slog"
 )
 
 var _ bind.Startup = (*Command)(nil)

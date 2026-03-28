@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/google/uuid"
 	"github.com/mlctrez/bind"
@@ -147,13 +148,10 @@ func (f *Factorio) Startup() error {
 
 func (f *Factorio) Restart() error {
 	f.Info("restarting factorio")
-	if f.cmd.Process != nil && f.cmd.ProcessState == nil {
-		if err := f.cmd.Process.Signal(os.Interrupt); err != nil {
-			return err
-		}
-		if err := f.cmd.Wait(); err != nil {
-			return err
-		}
+	// Always attempt a clean shutdown first
+	if err := f.Shutdown(); err != nil {
+		// You might want to log this or decide if it's truly fatal
+		f.Error("shutdown during restart failed", "error", err)
 	}
 	if err := f.cmdSetup(); err != nil {
 		return err
@@ -165,8 +163,10 @@ func (f *Factorio) Shutdown() error {
 
 	if f.cmd.Process != nil && f.cmd.ProcessState == nil {
 		if err := f.cmd.Process.Signal(os.Interrupt); err != nil {
-			f.Error("factorio interrupt error", "error", err)
-			return err
+			if !errors.Is(err, os.ErrProcessDone) {
+				f.Error("factorio interrupt error", "error", err)
+				return err
+			}
 		}
 		if err := f.cmd.Wait(); err != nil {
 			var exitError *exec.ExitError
@@ -234,13 +234,18 @@ func (f *Factorio) stdinHandler(msg *nats.Msg) {
 }
 
 func (f *Factorio) Status() string {
-	if f.cmd.ProcessState == nil {
-		return "running"
-	}
-	if f.cmd.ProcessState.Exited() {
+	if f.cmd == nil || f.cmd.Process == nil {
 		return "stopped"
 	}
-	return "unknown"
+	if f.cmd.ProcessState != nil && f.cmd.ProcessState.Exited() {
+		return "stopped"
+	}
+	// Check if process is actually alive (sending signal 0)
+	// on windows this would be something else
+	if err := f.cmd.Process.Signal(os.Signal(syscall.Signal(0))); err != nil {
+		return "stopped"
+	}
+	return "running"
 }
 
 func (f *Factorio) softmodHandler(msg *nats.Msg) {

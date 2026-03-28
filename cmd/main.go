@@ -18,9 +18,13 @@ import (
 	"github.com/nats-io/nats.go"
 )
 
-const Host = "factorio"
+var Host string
 
 func main() {
+	Host = os.Getenv("FACTOP_HOST")
+	if Host == "" {
+		Host = "factorio"
+	}
 	if len(os.Args) < 2 {
 		printUsage()
 		return
@@ -58,7 +62,7 @@ func main() {
 func printUsage() {
 	fmt.Println("Usage: go run cmd/main.go <command> [args...]")
 	fmt.Println("Available commands:")
-	fmt.Println("  watch             - Watch factorio.* NATS messages")
+	fmt.Println("  watch             - Watch factorio.* and udp.* NATS messages")
 	fmt.Println("  service           - Build and deploy the factop service")
 	fmt.Println("  softmod           - Deploy the softmod zip")
 	fmt.Println("  command <args...> - Send a command to factop.command")
@@ -86,13 +90,20 @@ func Watch() (err error) {
 	}
 	defer conn.Close()
 
-	fmt.Println("watching factorio.* ...")
+	fmt.Println("watching factorio.* and udp.* ...")
 	_, err = conn.Subscribe("factorio.*", func(msg *nats.Msg) {
 		data := string(msg.Data)
 		if msg.Subject == "factorio.softmod" {
 			data = fmt.Sprintf("(binary data %d bytes)", len(msg.Data))
 		}
 		fmt.Printf("[%s] %s\n", msg.Subject, data)
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Subscribe("udp.*", func(msg *nats.Msg) {
+		fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
 	})
 	if err != nil {
 		return err

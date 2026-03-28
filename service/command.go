@@ -2,7 +2,11 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/mlctrez/bind"
 	"github.com/mlctrez/factop/service/downloader"
@@ -15,6 +19,7 @@ type Command struct {
 	slog.Logger
 	Nats     *Nats
 	Factorio *Factorio
+	Settings *Settings
 }
 
 func (c *Command) Startup() error {
@@ -22,9 +27,12 @@ func (c *Command) Startup() error {
 }
 
 func (c *Command) handleCommand(msg *nats.Msg) {
-	var command = string(msg.Data)
+	parts := strings.Fields(string(msg.Data))
+	if len(parts) == 0 {
+		return
+	}
 
-	switch command {
+	switch parts[0] {
 	case "status":
 		c.Nats.Reply(msg, []byte(c.Factorio.Status()), nil)
 	case "stop":
@@ -44,9 +52,39 @@ func (c *Command) handleCommand(msg *nats.Msg) {
 			}
 		}()
 		c.Nats.Reply(msg, []byte("download started"), nil)
+	case "list-versions":
+		entries, err := os.ReadDir("/opt/factorio")
+		if err != nil {
+			c.Nats.Reply(msg, nil, err)
+			return
+		}
+		var versions []string
+		for _, entry := range entries {
+			if entry.IsDir() && versionRegex.MatchString(entry.Name()) {
+				versions = append(versions, entry.Name())
+			}
+		}
+		c.Nats.Reply(msg, []byte(strings.Join(versions, "\n")), nil)
+	case "set-version":
+		if len(parts) < 2 {
+			c.Nats.Reply(msg, nil, errors.New("usage: set-version <version>"))
+			return
+		}
+		newVersion := parts[1]
+		// verify it exists
+		if _, err := os.Stat(filepath.Join("/opt/factorio", newVersion)); os.IsNotExist(err) {
+			c.Nats.Reply(msg, nil, fmt.Errorf("version %s not found", newVersion))
+			return
+		}
+		c.Settings.Data.FactorioVersion = newVersion
+		if err := c.Settings.Save(); err != nil {
+			c.Nats.Reply(msg, nil, err)
+			return
+		}
+		err := c.Factorio.Restart()
+		c.Nats.Reply(msg, []byte(fmt.Sprintf("version set to %s and restarting: %s", newVersion, c.Factorio.Status())), err)
 	default:
-		usage := "available commands: status, stop, restart, reset, latest"
+		usage := "available commands: status, stop, restart, reset, latest, list-versions, set-version <version>"
 		c.Nats.Reply(msg, nil, errors.New(usage))
 	}
-
 }

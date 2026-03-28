@@ -18,15 +18,17 @@ Factorio operator.
     * A [nats](https://docs.nats.io/nats-concepts/what-is-nats) server is embedded in the factop service.
         * The Factorio stdin, stdout, and stderr are exposed as nats subjects.
     * A rcon connection is managed by the factop service and exposed via a nats subject.
-    * A mage build target for executing lua code via this rcon connection.
+    * A command-line tool for executing lua code via this rcon connection.
 
 ## Commands
 
-All commands are sent to the factop server over [NATS](https://docs.nats.io/nats-concepts/what-is-nats) using a request/reply pattern. The `mage` build tool provides convenience wrappers for these.
+All commands are sent to the factop server over [NATS](https://docs.nats.io/nats-concepts/what-is-nats) using a request/reply pattern. The CLI tool in `cmd/main.go` provides convenience wrappers for these.
+
+> **Note**: Mage was originally used for these operations but was replaced by a custom CLI in `cmd/main.go` because of Mage's limitations with variadic command-line arguments. The `cmd/main.go` file is a direct port of the original Mage targets to maintain a familiar structure.
 
 ### Server Management (`factop.command`)
 
-Sent via `mage command <name>`:
+Sent via `go run cmd/main.go command <name>`:
 
 | Command   | Description                                              |
 |-----------|----------------------------------------------------------|
@@ -38,15 +40,15 @@ Sent via `mage command <name>`:
 
 ### RCON (`factop.rcon`)
 
-Sent via `mage rcon <path-to-lua-file>`. Lua scripts are stripped of comments and blank lines, prefixed with `/sc`, and executed through the managed RCON connection.
+Sent via `go run cmd/main.go rcon <path-to-lua-file>`. Lua scripts are stripped of comments and blank lines, prefixed with `/sc`, and executed through the managed RCON connection.
 
-`mage prcon <delay-in-seconds> <path-to-lua-file>` does the same thing on a repeating timer.
+`go run cmd/main.go prcon <delay-in-seconds> <path-to-lua-file>` does the same thing on a repeating timer.
 
-`mage lrcon <path-to-lua-file>` sends to a local NATS server at `localhost` instead of the remote host.
+`go run cmd/main.go lrcon <path-to-lua-file>` sends to a local NATS server at `localhost` instead of the remote host.
 
 ### Softmod (`factorio.softmod`)
 
-Sent via `mage softmod`. This packages the `softmod/` directory into a zip, sends it to the server, which then stops Factorio, applies the softmod to the save file, and restarts.
+Sent via `go run cmd/main.go softmod`. This packages the `softmod/` directory into a zip, sends it to the server, which then stops Factorio, applies the softmod to the save file, and restarts.
 
 ## Architecture
 
@@ -68,7 +70,7 @@ The project uses the `github.com/mlctrez/bind` library for dependency injection 
 ### Data Flows
 
 1.  **Command & Control**:
-    *   Client (`mage`) sends a request to a NATS subject (e.g., `factop.command`).
+    *   Client CLI (`go run cmd/main.go`) sends a request to a NATS subject (e.g., `factop.command`).
     *   The corresponding service component (e.g., `Command`) processes the request and interacts with the `Factorio` component.
     *   A response is sent back to the client via the NATS reply subject.
 
@@ -89,15 +91,14 @@ The project uses the `github.com/mlctrez/bind` library for dependency injection 
 
 ### Prerequisites
 *   Go 1.25+
-*   [Mage](https://magefile.org/)
 
 ### Building and Deploying
-The project uses `mage` for most tasks:
-*   `mage service`: Builds the `factop` binary and deploys it to the configured `Host` (defined in `magefiles/mage.go`).
-*   `mage softmod`: Packages the local `softmod/` directory and applies it to the remote server.
+The project uses a custom CLI in `cmd/main.go` for most tasks:
+*   `go run cmd/main.go service`: Builds the `factop` binary and deploys it to the configured `Host`.
+*   `go run cmd/main.go softmod`: Packages the local `softmod/` directory and applies it to the remote server.
 
 ### Project Structure
 *   `factop.go`: Entry point for the service.
 *   `service/`: Core component logic.
 *   `softmod/`: Source files for the Factorio soft mod (Lua scripts, graphics, etc.).
-*   `magefiles/`: Build and automation scripts.
+*   `cmd/main.go`: CLI tool for remote management (previously Mage).

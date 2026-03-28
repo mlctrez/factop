@@ -20,8 +20,9 @@ var _ bind.Shutdown = (*Factorio)(nil)
 
 type Factorio struct {
 	slog.Logger
-	Nats    *Nats
-	SoftMod *SoftMod
+	Nats     *Nats
+	SoftMod  *SoftMod
+	Settings *Settings
 
 	cmd        *exec.Cmd
 	stdErrPipe io.ReadCloser
@@ -33,8 +34,14 @@ type Factorio struct {
 	RconPassword string
 }
 
-const FactorioDirectory = "/opt/factorio/current"
-const FactorioBinary = FactorioDirectory + "/bin/x64/factorio"
+func (f *Factorio) binary() string {
+	return fmt.Sprintf("/opt/factorio/%s/bin/x64/factorio", f.Settings.Data.FactorioVersion)
+}
+
+func (f *Factorio) directory() string {
+	return fmt.Sprintf("/opt/factorio/%s", f.Settings.Data.FactorioVersion)
+}
+
 const SaveLocation = "/opt/factorio/saves"
 const SaveFile = SaveLocation + "/save.zip"
 const CreateSaveOutput = SaveLocation + "/create-save.log"
@@ -60,7 +67,7 @@ func (f *Factorio) saveFileSetup() error {
 	}
 	if _, err := os.Stat(SaveFile); os.IsNotExist(err) {
 		// TODO: add map gen settings
-		gen := exec.Command(FactorioBinary,
+		gen := exec.Command(f.binary(),
 			//"--map-gen-settings", MapGenSettings,
 			"--create", SaveFile,
 		)
@@ -94,7 +101,7 @@ func (f *Factorio) cmdSetup() error {
 	f.RconBind = "127.0.0.1:3000"
 	f.RconPassword = strings.ReplaceAll(uuid.NewString(), "-", "")
 	f.cmd = exec.Command(
-		FactorioBinary,
+		f.binary(),
 		"--enable-lua-udp", "4001",
 		"--port", fmt.Sprintf("%d", f.Port),
 		"--start-server", SaveFile,
@@ -104,7 +111,7 @@ func (f *Factorio) cmdSetup() error {
 		"--server-adminlist", ServerAdminList,
 		"--server-banlist", ServerBanList,
 	)
-	f.cmd.Dir = FactorioDirectory
+	f.cmd.Dir = f.directory()
 	var err error
 	if f.stdErrPipe, err = f.cmd.StderrPipe(); err != nil {
 		return err

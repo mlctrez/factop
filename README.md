@@ -25,10 +25,12 @@ Factorio operator.
 All commands are sent to the factop server over [NATS](https://docs.nats.io/nats-concepts/what-is-nats) using a request/reply pattern. The CLI tool in `cmd/main.go` provides convenience wrappers for these.
 
 > **Note**: Mage was originally used for these operations but was replaced by a custom CLI in `cmd/main.go` because of Mage's limitations with variadic command-line arguments. The `cmd/main.go` file is a direct port of the original Mage targets to maintain a familiar structure.
+>
+> **Note**: For brevity, the command `focmd` is used in the examples below. You should create an alias (e.g., `alias focmd='go run cmd/main.go'`) or pre-compile the binary to start using these commands.
 
 ### Server Management (`factop.command`)
 
-Sent via `go run cmd/main.go command <name>`:
+Sent via `focmd command <name>`:
 
 | Command   | Description                                              |
 |-----------|----------------------------------------------------------|
@@ -37,18 +39,20 @@ Sent via `go run cmd/main.go command <name>`:
 | `restart` | Restarts the Factorio server                             |
 | `reset`   | Deletes the save file and restarts with a fresh map      |
 | `latest`  | Starts a background download of the latest Factorio version |
+| `list-versions` | Lists available Factorio versions in `/opt/factorio` |
+| `set-version <version>` | Sets the current Factorio version and restarts the server |
 
 ### RCON (`factop.rcon`)
 
-Sent via `go run cmd/main.go rcon <path-to-lua-file>`. Lua scripts are stripped of comments and blank lines, prefixed with `/sc`, and executed through the managed RCON connection.
+Sent via `focmd rcon <path-to-lua-file>`. Lua scripts are stripped of comments and blank lines, prefixed with `/sc`, and executed through the managed RCON connection.
 
-`go run cmd/main.go prcon <delay-in-seconds> <path-to-lua-file>` does the same thing on a repeating timer.
+`focmd prcon <delay-in-seconds> <path-to-lua-file>` does the same thing on a repeating timer.
 
-`go run cmd/main.go lrcon <path-to-lua-file>` sends to a local NATS server at `localhost` instead of the remote host.
+`focmd lrcon <path-to-lua-file>` sends to a local NATS server at `localhost` instead of the remote host.
 
 ### Softmod (`factorio.softmod`)
 
-Sent via `go run cmd/main.go softmod`. This packages the `softmod/` directory into a zip, sends it to the server, which then stops Factorio, applies the softmod to the save file, and restarts.
+Sent via `focmd softmod`. This packages the `softmod/` directory into a zip, sends it to the server, which then stops Factorio, applies the softmod to the save file, and restarts.
 
 ## Architecture
 
@@ -70,7 +74,7 @@ The project uses the `github.com/mlctrez/bind` library for dependency injection 
 ### Data Flows
 
 1.  **Command & Control**:
-    *   Client CLI (`go run cmd/main.go`) sends a request to a NATS subject (e.g., `factop.command`).
+    *   Client CLI (`focmd`) sends a request to a NATS subject (e.g., `factop.command`).
     *   The corresponding service component (e.g., `Command`) processes the request and interacts with the `Factorio` component.
     *   A response is sent back to the client via the NATS reply subject.
 
@@ -94,8 +98,8 @@ The project uses the `github.com/mlctrez/bind` library for dependency injection 
 
 ### Building and Deploying
 The project uses a custom CLI in `cmd/main.go` for most tasks:
-*   `go run cmd/main.go service`: Builds the `factop` binary and deploys it to the configured `Host`.
-*   `go run cmd/main.go softmod`: Packages the local `softmod/` directory and applies it to the remote server.
+*   `focmd service`: Builds the `factop` binary and deploys it to the configured `Host`.
+*   `focmd softmod`: Packages the local `softmod/` directory and applies it to the remote server.
 
 ### Project Structure
 *   `factop.go`: Entry point for the service.

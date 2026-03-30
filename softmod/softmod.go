@@ -54,6 +54,11 @@ func BuildControlLua() (buf *bytes.Buffer, err error) {
 		if path == "control.lua" || !strings.HasSuffix(path, ".lua") {
 			return nil
 		}
+		// common.lua is a shared helper library required directly by other
+		// modules — it has no event handlers and should not be registered.
+		if strings.HasSuffix(path, "/common.lua") {
+			return nil
+		}
 		requirePath := strings.ReplaceAll(strings.TrimSuffix(path, ".lua"), "/", ".")
 		_, _ = fmt.Fprintf(controlLua, "add_lib(%q)\n", requirePath)
 		return nil

@@ -4,6 +4,7 @@
 
 ## contents
 
+* factop/common.lua - shared helper functions (not registered with event_handler)
 * factop/*.lua - libraries passed to the built-in factorio event_handler code
 * locale/<lang>/*.cfg - localization files
 * img/* - any images bundled with the softmod
@@ -12,7 +13,28 @@
 
 ## Lua File Requirements (softmod/factop/*.lua)
 
-All Lua files in the `softmod/factop/` directory are automatically included in the generated `control.lua` via `controlHeader.lua`. To interact correctly with the Factorio `event_handler`, each file must follow these rules:
+All Lua files in the `softmod/factop/` directory are automatically included in the generated `control.lua` via `controlHeader.lua`, with one exception: `common.lua` is excluded from `add_lib` registration since it has no event handlers. It is instead required directly by modules that need it.
+
+### Shared Helpers (factop/common.lua)
+
+`common.lua` provides functions shared across all command modules. Require it at the top of any module:
+
+```lua
+local c = require("factop.common")
+```
+
+Available functions:
+* `c.rcon_only(cmd)` — returns true if invoked via RCON, rejects in-game players
+* `c.reply(msg)` — prints to rcon.print or game.print as appropriate
+* `c.get_surface(name)` — returns the named surface or nauvis as default
+* `c.parse_args(cmd)` — splits cmd.parameter into an array of strings
+* `c.parse_tile_area(s)` — parses "x1,y1,x2,y2" into left_top/right_bottom (integer coords)
+* `c.parse_area(s)` — parses "x1,y1,x2,y2" into a BoundingBox (float coords)
+* `c.parse_position(s)` — parses "x,y" into a position table
+
+### Module Requirements
+
+To interact correctly with the Factorio `event_handler`, each file must follow these rules:
 
 1. **Return a Table**: Each file MUST return a table containing the event handlers it wants to register.
 2. **Event Registration**: The table should use the standard Factorio `event_handler` structure, including keys such as:

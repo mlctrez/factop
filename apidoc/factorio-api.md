@@ -1,0 +1,1751 @@
+---
+inclusion: manual
+---
+
+# Factorio Runtime Lua API Reference (v2.0.76)
+
+## Global Objects
+
+- `commands` :: `LuaCommandProcessor` — Allows registration of custom commands for the in-game console.
+- `game` :: `LuaGameScript` — The main scripting interface through which most of the API is accessed.
+- `helpers` :: `LuaHelpers` — Provides access to various helper and utility functions.
+- `prototypes` :: `LuaPrototypes` — Allows read-only access to prototypes.
+- `rcon` :: `LuaRCON` — Allows printing messages to the calling RCON instance, if any.
+- `remote` :: `LuaRemote` — Allows registration and use of functions to communicate between mods.
+- `rendering` :: `LuaRendering` — Allows rendering of geometric shapes, text and sprites in the game world.
+- `script` :: `LuaBootstrap` — Provides an interface for registering game event handlers.
+- `settings` :: `LuaSettings` — Provides access to the current mod settings.
+
+## Global Functions
+
+- `localised_print(string)` — `localised_print()` allows printing [LocalisedString](runtime:LocalisedString) to stdout without polluting the Factorio [log file](https://wiki.factorio.com/Log_file).
+- `log(string)` — `log()` can print [LocalisedStrings](runtime:LocalisedString) to the Factorio [log file](https://wiki.factorio.com/Log_file).
+- `table_size(table) → uint32` — Factorio provides the `table_size()` function as a simple way to determine the size of tables with non-continuous keys, as the standard `#` operator does not work correctly for these.
+
+## Class: LuaBootstrap
+
+Entry point for registering event handlers.
+
+### Attributes
+
+- `active_mods` :: `dict[string → string]` [R] — A dictionary listing the names of all currently active mods and mapping them to their version.
+- `feature_flags` :: `table` [R] — A dictionary of feature flags mapping to whether they are enabled.
+- `level` :: `table` [R] — Information about the currently running scenario/campaign/tutorial.
+- `mod_name` :: `string` [R] — The name of the mod from the environment this is used in.
+- `object_name` :: `string` [R] — The class name of this object.
+
+### Methods
+
+- `LuaBootstrap.generate_event_name() → defines.events` — Generate a new, unique event ID that can be used to raise custom events with [LuaBootstrap::raise_event](runtime:LuaBootstrap::raise_event).
+- `LuaBootstrap.get_event_filter(event) → EventFilter` — Gets the filters for the given event.
+- `LuaBootstrap.get_event_handler(event) → function` — Find the event handler for an event.
+- `LuaBootstrap.get_event_id(event) → defines.events` — Converts LuaEventType into related value of defines.events.
+- `LuaBootstrap.get_event_order() → string` — Gets the mod event order as a string.
+- `LuaBootstrap.on_configuration_changed(handler)` — Register a function to be run when mod configuration changes.
+- `LuaBootstrap.on_event(event, filters?, handler)` — Register a handler to run on the specified event(s).
+- `LuaBootstrap.on_init(handler)` — Register a function to be run on mod initialization.
+- `LuaBootstrap.on_load(handler)` — Register a function to be run on save load.
+- `LuaBootstrap.on_nth_tick(handler, tick)` — Register a handler to run every nth-tick(s).
+- `LuaBootstrap.raise_biter_base_built({...})`
+  - `entity` :: `LuaEntity` — The entity that was built.
+- `LuaBootstrap.raise_console_chat({...})`
+  - `message` :: `string` — The chat message to send.
+  - `player_index` :: `uint32` — The player doing the chatting.
+- `LuaBootstrap.raise_event(data, event)` — Raise an event.
+- `LuaBootstrap.raise_market_item_purchased({...})`
+  - `count` :: `uint32` — The amount of offers purchased.
+  - `market` :: `LuaEntity` — The market entity.
+  - `offer_index` :: `uint32` — The index of the offer purchased.
+  - `player_index` :: `uint32` — The player who did the purchasing.
+- `LuaBootstrap.raise_player_crafted_item({...})`
+  - `item_stack` :: `LuaItemStack` — The item that has been crafted.
+  - `player_index` :: `uint32` — The player doing the crafting.
+  - `recipe` :: `RecipeID` — The recipe used to craft this item.
+- `LuaBootstrap.raise_player_fast_transferred({...})`
+  - `entity` :: `LuaEntity` — The entity transferred from or to.
+  - `from_player` :: `boolean` — Whether the transfer was from player to entity.
+  - `is_split` :: `boolean` — Whether the transfer was a split action (half stack).
+  - `player_index` :: `uint32` — The player transferred from or to.
+- `LuaBootstrap.raise_script_built({...})`
+  - `entity` :: `LuaEntity` — The entity that has been built.
+- `LuaBootstrap.raise_script_destroy({...})`
+  - `entity` :: `LuaEntity` — The entity that was destroyed.
+- `LuaBootstrap.raise_script_destroy_segmented_unit({...})`
+  - `segmented_unit` :: `LuaSegmentedUnit` — The segmented unit that was destroyed.
+- `LuaBootstrap.raise_script_revive({...})`
+  - `entity` :: `LuaEntity` — The entity that was revived.
+  - `tags?` :: `Tags` — The tags associated with this entity, if any.
+- `LuaBootstrap.raise_script_set_tiles({...})`
+  - `surface_index` :: `uint32` — The surface whose tiles have been changed.
+  - `tiles` :: `array[Tile]` — The tiles that have been changed.
+- `LuaBootstrap.raise_script_teleported({...})`
+  - `entity` :: `LuaEntity` — The entity that was teleported.
+  - `old_position` :: `MapPosition` — The entity's position before the teleportation.
+  - `old_surface_index` :: `uint8` — The entity's surface before the teleportation.
+- `LuaBootstrap.register_metatable(metatable, name)` — Register a metatable to have linkage recorded and restored when saving/loading.
+- `LuaBootstrap.register_on_object_destroyed(object) → uint64, uint64, defines.target_type` — Registers an object so that after it's destroyed, [on_object_destroyed](runtime:on_object_destroyed) is called.
+- `LuaBootstrap.set_event_filter(event, filters?)` — Sets the filters for the given event.
+
+## Class: LuaEntity (extends LuaControl)
+
+The primary interface for interacting with entities through the Lua API.
+
+### Attributes
+
+- `absorbed_pollution` :: `double` [R]
+- `active` :: `boolean` [RW] — Deactivating an entity will stop all its operations (car will stop moving, inserters will stop working, fish will stop moving etc).
+- `ai_settings` :: `LuaAISettings` [R] — The ai settings of this unit.
+- `alert_parameters` :: `ProgrammableSpeakerAlertParameters` [RW]
+- `allow_dispatching_robots` :: `boolean` [RW] — Whether this character's personal roboports are allowed to dispatch robots.
+- `always_on` :: `boolean` [RW] — If the lamp is always on when not driven by control behavior.
+- `amount` :: `uint32` [RW] — Count of resource units contained.
+- `armed` :: `boolean` [R] — Whether this land mine is armed.
+- `artillery_auto_targeting` :: `boolean` [RW] — If this artillery auto-targets enemies.
+- `associated_player?` :: `LuaPlayer` [RW] — The player this character is associated with, if any.
+- `attached_cargo_pod?` :: `LuaEntity` [R] — The cargo pod attached to this rocket silo rocket if any.
+- `autopilot_destination?` :: `MapPosition` [RW] — Destination of this spidertron's autopilot, if any.
+- `autopilot_destinations` :: `array[MapPosition]` [R] — The queued destination positions of spidertron's autopilot.
+- `backer_name?` :: `string` [RW] — The backer name assigned to this entity.
+- `base_damage_modifiers` :: `TriggerModifierData` [RW]
+- `beacons_count?` :: `uint32` [R] — Number of beacons affecting this effect receiver.
+- `belt_neighbours` :: `table` [R] — The belt connectable neighbours of this belt connectable entity.
+- `belt_shape` :: `straight | left | right` [R] — Gives what is the current shape of a transport-belt.
+- `belt_to_ground_type` :: `BeltConnectionType` [R] — Whether this underground belt goes into or out of the ground.
+- `bonus_damage_modifiers` :: `TriggerModifierData` [RW]
+- `bonus_mining_progress?` :: `double` [RW] — The bonus mining progress for this mining drill.
+- `bonus_progress` :: `double` [RW] — The current productivity bonus progress, as a number in range `[0, 1]`.
+- `bounding_box` :: `BoundingBox` [R] — [LuaEntityPrototype::collision_box](runtime:LuaEntityPrototype::collision_box) around entity's given position and respecting the current entity orientation.
+- `burner?` :: `LuaBurner` [R] — The burner energy source for this entity, if any.
+- `cargo_bay_connection_owner?` :: `LuaEntity` [R] — The space platform hub or cargo landing pad this cargo bay is connected to if any.
+- `cargo_hatches` :: `array[LuaCargoHatch]` [R] — The cargo hatches owned by this entity if any.
+- `cargo_pod_destination` :: `CargoDestination` [RW] — The destination of this cargo pod entity.
+- `cargo_pod_origin?` :: `LuaEntity` [RW] — The origin of this cargo pod entity.
+- `cargo_pod_state` :: `awaiting_launch | ascending | surface_transition | descending | parking` [R] — The state of this cargo pod entity.
+- `chain_signal_state` :: `defines.chain_signal_state` [R] — The state of this chain signal.
+- `character_corpse_death_cause` :: `LocalisedString` [RW] — The reason this character corpse character died.
+- `character_corpse_player_index` :: `uint32` [RW] — The player index associated with this character corpse.
+- `character_corpse_tick_of_death` :: `uint32` [RW] — The tick this character corpse died at.
+- `cliff_orientation` :: `CliffOrientation` [R] — The orientation of this cliff.
+- `color?` :: `Color` [RW] — The color of this character, rolling stock, corpse, character corpse, train stop, simple-entity-with-owner, car, spider-vehicle, or lamp.
+- `combat_robot_owner?` :: `LuaEntity` [RW] — The owner of this combat robot, if any.
+- `combinator_description` :: `string` [RW] — The description on this combinator.
+- `commandable?` :: `LuaCommandable` [R] — Returns a LuaCommandable for this entity or nil if entity is not commandable.
+- `connected_rail?` :: `LuaEntity` [R] — The rail entity this train stop is connected to, if any.
+- `connected_rail_direction` :: `defines.rail_direction` [R] — Rail direction to which this train stop is binding.
+- `consumption_bonus` :: `double` [R] — The consumption bonus of this entity.
+- `consumption_modifier` :: `float` [RW] — Multiplies the energy consumption.
+- `copy_color_from_train_stop` :: `boolean` [RW] — If this rolling stock has 'copy color from train stop' enabled.
+- `corpse_expires` :: `boolean` [RW] — Whether this corpse will ever fade away.
+- `corpse_immune_to_entity_placement` :: `boolean` [RW] — If true, corpse won't be destroyed when entities are placed over it.
+- `crafting_progress` :: `float` [RW] — The current crafting progress, as a number in range `[0, 1]`.
+- `crafting_speed` :: `double` [R] — The current crafting speed, including speed bonuses from modules and beacons.
+- `crane_destination` :: `MapPosition` [RW] — Destination of the crane of this entity.
+- `crane_destination_3d` :: `Vector3D` [RW] — Destination of the crane of this entity in 3D.
+- `crane_end_position_3d` :: `Vector3D` [R] — Returns current position in 3D for the end of the crane of this entity.
+- `crane_grappler_destination` :: `nil` [W] — Will set destination for the grappler of crane of this entity.
+- `crane_grappler_destination_3d` :: `nil` [W] — Will set destination in 3D for the grappler of crane of this entity.
+- `created_by_corpse?` :: `LuaEntity` [R] — The corpse that caused this entity ghost to be created, if any.
+- `custom_status?` :: `CustomEntityStatus` [RW] — A custom status for this entity that will be displayed in the GUI.
+- `damage_dealt` :: `double` [RW] — The damage dealt by this turret, artillery turret, or artillery wagon.
+- `destructible` :: `boolean` [RW] — If set to `false`, this entity can't be damaged and won't be attacked automatically.
+- `direction` :: `defines.direction` [RW] — The current direction this entity is facing.
+- `disabled_by_control_behavior` :: `boolean` [R] — If the updatable entity is disabled by control behavior.
+- `disabled_by_recipe` :: `boolean` [R] — If the assembling machine is disabled by recipe, e.g.
+- `disabled_by_script` :: `boolean` [RW] — If the updatable entity is disabled by script.
+- `display_panel_always_show` :: `boolean` [RW]
+- `display_panel_icon?` :: `SignalID` [RW] — Icon visible on the display panel.
+- `display_panel_show_in_chart` :: `boolean` [RW]
+- `display_panel_text` :: `LocalisedString` [RW] — Text visible on the display panel.
+- `draw_data` :: `RollingStockDrawData` [R] — Gives a draw data of the given entity if it supports such data.
+- `driver_is_gunner?` :: `boolean` [RW] — Whether the driver of this car or spidertron is the gunner.
+- `drop_position` :: `MapPosition` [RW] — Position where the entity puts its stuff.
+- `drop_target?` :: `LuaEntity` [RW] — The entity this entity is putting its items to.
+- `effective_speed?` :: `float` [R] — The current speed of this unit in tiles per tick, taking into account any walking speed modifier given by the tile the unit is standing on.
+- `effectivity_modifier` :: `float` [RW] — Multiplies the acceleration the car can create for one unit of energy.
+- `effects?` :: `ModuleEffects` [R] — The effects being applied to this entity, if any.
+- `electric_buffer_size?` :: `double` [RW] — The buffer size for the electric energy source.
+- `electric_drain?` :: `double` [R] — The electric drain for the electric energy source.
+- `electric_emissions_per_joule?` :: `dict[string → double]` [R] — The table of emissions of this energy source in `pollution/Joule`, indexed by pollutant type.
+- `electric_network_id?` :: `uint32` [R] — Returns the id of the electric network that this entity is connected to, if any.
+- `electric_network_statistics` :: `LuaFlowStatistics` [R] — The electric network statistics for this electric pole.
+- `enable_logistics_while_moving` :: `boolean` [RW] — Whether equipment grid logistics are enabled while this vehicle is moving.
+- `energy` :: `double` [RW] — Energy stored in the entity's energy buffer (energy stored in electrical devices etc.).
+- `energy_generated_last_tick` :: `double` [R] — How much energy this generator generated in the last tick.
+- `entity_label?` :: `string` [RW] — The label on this spider-vehicle entity, if any.
+- `filter_slot_count` :: `uint32` [R] — The number of filter slots this inserter, loader, mining drill, asteroid collector or logistic storage container has.
+- `fluidbox` :: `LuaFluidBox` [R] — Fluidboxes of this entity.
+- `fluids_count` :: `uint32` [R] — Returns count of fluid storages.
+- `follow_offset?` :: `Vector` [RW] — The follow offset of this spidertron, if any entity is being followed.
+- `follow_target?` :: `LuaEntity` [RW] — The follow target of this spidertron, if any.
+- `friction_modifier` :: `float` [RW] — Multiplies the car friction rate.
+- `frozen` :: `boolean` [R] — Whether the freezable entity is currently frozen.
+- `ghost_localised_description` :: `LocalisedString` [R]
+- `ghost_localised_name` :: `LocalisedString` [R] — Localised name of the entity or tile contained in this ghost.
+- `ghost_name` :: `string` [R] — Name of the entity or tile contained in this ghost.
+- `ghost_prototype` :: `LuaEntityPrototype | LuaTilePrototype` [R] — The prototype of the entity or tile contained in this ghost.
+- `ghost_type` :: `string` [R] — The prototype type of the entity or tile contained in this ghost.
+- `ghost_unit_number?` :: `uint64` [R] — The [unit_number](runtime:LuaEntity::unit_number) of the entity contained in this ghost.
+- `gps_tag` :: `string` [R] — Returns a [rich text](https://wiki.factorio.com/Rich_text) string containing this entity's position and surface name as a gps tag.
+- `graphics_variation?` :: `uint8` [RW] — The graphics variation for this entity.
+- `grid?` :: `LuaEquipmentGrid` [R] — This entity's equipment grid, if any.
+- `health?` :: `float` [RW] — The current health of the entity, if any.
+- `heat_neighbours` :: `array[LuaEntity]` [R] — The entities connected to this entities heat buffer.
+- `held_stack` :: `LuaItemStack` [R] — The item stack currently held in an inserter's hand.
+- `held_stack_position` :: `MapPosition` [R] — Current position of the inserter's "hand".
+- `highlight_box_blink_interval` :: `uint32` [RW] — The blink interval of this highlight box entity.
+- `highlight_box_type` :: `CursorBoxRenderType` [RW] — The highlight box type of this highlight box entity.
+- `ignore_unprioritised_targets` :: `boolean` [RW] — Whether this turret shoots at targets that are not on its priority list.
+- `infinity_container_filters` :: `array[InfinityInventoryFilter]` [RW] — The filters for this infinity container.
+- `initial_amount?` :: `uint32` [RW] — Count of initial resource units contained.
+- `insert_plan` :: `array[BlueprintInsertPlan]` [RW] — The insert plan for this ghost or item request proxy.
+- `inserter_filter_mode?` :: `whitelist | blacklist` [RW] — The filter mode for this filter inserter.
+- `inserter_spoil_priority` :: `SpoilPriority` [RW] — The spoil priority for this inserter.
+- `inserter_stack_size_override` :: `uint32` [RW] — Sets the stack size limit on this inserter.
+- `inserter_target_pickup_count` :: `uint32` [R] — Returns the current target pickup count of the inserter.
+- `is_entity_with_health` :: `boolean` [R] — If this entity is EntityWithHealth
+- `is_entity_with_owner` :: `boolean` [R] — If this entity is EntityWithOwner
+- `is_freezable` :: `boolean` [R] — Whether the entity is freezable and considered a FreezableEntity.
+- `is_headed_to_trains_front` :: `boolean` [R] — If the rolling stock is facing train's front.
+- `is_military_target` :: `boolean` [RW] — Whether this entity is a MilitaryTarget.
+- `is_updatable` :: `boolean` [R] — Whether the entity is updatable and considered an UpdatableEntity.
+- `item_request_proxy?` :: `LuaEntity` [R] — The first found item request proxy targeting this entity.
+- `item_requests` :: `ItemWithQualityCounts` [R] — Items this ghost will request when revived or items this item request proxy is requesting.
+- `kills` :: `uint32` [RW] — The number of units killed by this turret, artillery turret, or artillery wagon.
+- `last_user?` :: `LuaPlayer` [RW] — The last player that changed any setting on this entity.
+- `link_id` :: `uint32` [RW] — The link ID this linked container is using.
+- `linked_belt_neighbour?` :: `LuaEntity` [R] — Neighbour to which this linked belt is connected to, if any.
+- `linked_belt_type` :: `BeltConnectionType` [RW] — Type of linked belt.
+- `loader_belt_stack_size_override` :: `uint8` [RW] — The belt stack size override for this loader.
+- `loader_container?` :: `LuaEntity` [R] — The container entity this loader is pointing at/pulling from depending on the [LuaEntity::loader_type](runtime:LuaEntity::loader_type), if any.
+- `loader_filter_mode?` :: `PrototypeFilterMode` [RW] — The filter mode for this loader.
+- `loader_type` :: `BeltConnectionType` [RW] — Whether this loader gets items from or puts item into a container.
+- `localised_description` :: `LocalisedString` [R]
+- `localised_name` :: `LocalisedString` [R] — Localised name of the entity.
+- `logistic_cell` :: `LuaLogisticCell` [R] — The logistic cell this entity is a part of.
+- `logistic_network` :: `LuaLogisticNetwork` [RW] — The logistic network this entity is a part of, or `nil` if this entity is not a part of any logistic network.
+- `max_health` :: `float` [R] — Max health of this entity.
+- `minable` :: `boolean` [RW] — Not minable entities can still be destroyed.
+- `minable_flag` :: `boolean` [RW] — Script controlled flag that allows entity to be mined.
+- `mining_area` :: `BoundingBox` [R] — Area in which this mining drill looks for resources to mine.
+- `mining_drill_filter_mode?` :: `whitelist | blacklist` [RW] — The filter mode for this mining drill.
+- `mining_progress?` :: `double` [RW] — The mining progress for this mining drill.
+- `mining_target?` :: `LuaEntity` [R] — The mining target, if any.
+- `mirroring` :: `boolean` [RW] — Whether the entity is currently mirrored.
+- `name` :: `string` [R] — Name of the entity prototype.
+- `name_tag` :: `string` [RW] — Name tag of this entity.
+- `neighbour_bonus` :: `double` [R] — The current total neighbour bonus of this reactor.
+- `neighbours?` :: `dict[string → LuaEntity] | array[array[LuaEntity]] | LuaEntity` [R] — A list of neighbours for certain types of entities.
+- `object_name` :: `string` [R] — The class name of this object.
+- `operable` :: `boolean` [RW] — Player can't open gui of this entity and he can't quick insert/input stuff in to the entity when it is not operable.
+- `orientation` :: `RealOrientation` [RW] — The smooth orientation of this entity.
+- `owned_plants` :: `array[LuaEntity]` [R] — Plants registered by this agricultural tower.
+- `parameters` :: `ProgrammableSpeakerParameters` [RW]
+- `pickup_from_left_lane` :: `boolean` [RW] — For inserters taking items from transport belt connectables, this determines whether the inserter is allowed to take items from the left lane.
+- `pickup_from_right_lane` :: `boolean` [RW] — For inserters taking items from transport belt connectables, this determines whether the inserter is allowed to take items from the right lane.
+- `pickup_position` :: `MapPosition` [RW] — Where the inserter will pick up items from.
+- `pickup_target?` :: `LuaEntity` [RW] — The entity this inserter will attempt to pick up items from.
+- `player?` :: `LuaPlayer` [R] — The player connected to this character, if any.
+- `pollution_bonus` :: `double` [R] — The pollution bonus of this entity.
+- `power_production` :: `double` [RW] — The power production specific to the ElectricEnergyInterface entity type.
+- `power_switch_state` :: `boolean` [RW] — The state of this power switch.
+- `power_usage` :: `double` [RW] — The power usage specific to the ElectricEnergyInterface entity type.
+- `previous_recipe?` :: `RecipeIDAndQualityIDPair` [R] — The previous recipe this furnace was using, if any.
+- `priority_targets` :: `array[LuaEntityPrototype]` [R] — The priority targets for this turret (if any).
+- `procession_tick` :: `MapTick` [RW] — how far into the current procession the cargo pod is.
+- `productivity_bonus` :: `double` [R] — The productivity bonus of this entity.
+- `products_finished` :: `uint32` [RW] — The number of products this machine finished crafting in its lifetime.
+- `prototype` :: `LuaEntityPrototype` [R] — The entity prototype of this entity.
+- `proxy_target?` :: `LuaEntity` [R] — The target entity for this item-request-proxy, if any.
+- `proxy_target_entity?` :: `LuaEntity` [RW] — Entity of which inventory is exposed by this ProxyContainer
+- `proxy_target_inventory` :: `defines.inventory` [RW] — Inventory index of the inventory that is exposed by this ProxyContainer
+- `pump_rail_target?` :: `LuaEntity` [R] — The rail target of this pump, if any.
+- `pumped_last_tick` :: `double` [R] — The amount of fluid moved by this offshore pump or normal pump in the last tick.
+- `quality` :: `LuaQualityPrototype` [R] — The quality of this entity.
+- `radar_scan_progress` :: `float` [R] — The current radar scan progress, as a number in range `[0, 1]`.
+- `rail_layer` :: `defines.rail_layer` [R] — Gets rail layer of a given signal
+- `rail_length` :: `double` [R] — Length of this rail piece.
+- `recipe_locked` :: `boolean` [RW] — When locked; the recipe in this assembling machine can't be changed by the player.
+- `relative_turret_orientation?` :: `RealOrientation` [RW] — The relative orientation of the vehicle turret, artillery turret, artillery wagon.
+- `removal_plan` :: `array[BlueprintInsertPlan]` [RW] — The removal plan for this item request proxy.
+- `remove_unfiltered_items` :: `boolean` [RW] — Whether items not included in this infinity container filters should be removed from the container.
+- `render_player?` :: `LuaPlayer` [RW] — The player that this `simple-entity-with-owner`, `simple-entity-with-force`, or `highlight-box` is visible to.
+- `render_to_forces?` :: `array[LuaForce]` [RW] — The forces that this `simple-entity-with-owner` or `simple-entity-with-force` is visible to.
+- `request_from_buffers` :: `boolean` [RW] — Whether this requester chest is set to also request from buffer chests.
+- `result_quality?` :: `LuaQualityPrototype` [RW] — The quality produced when this crafting machine finishes crafting.
+- `robot_order_queue` :: `array[WorkerRobotOrder]` [R] — Get the current queue of robot orders.
+- `rocket?` :: `LuaEntity` [R] — The rocket silo rocket this cargo pod is attached to, or rocket silo rocket attached to this rocket silo - if any.
+- `rocket_parts` :: `uint32` [RW] — Number of rocket parts in this rocket silo.
+- `rocket_silo_status` :: `defines.rocket_silo_status` [R] — The status of this rocket silo entity.
+- `rotatable` :: `boolean` [RW] — When entity is not to be rotatable (inserter, transport belt etc), it can't be rotated by player using the R key.
+- `secondary_bounding_box?` :: `BoundingBox` [R] — The secondary bounding box of this entity or `nil` if it doesn't have one.
+- `secondary_selection_box?` :: `BoundingBox` [R] — The secondary selection box of this entity or `nil` if it doesn't have one.
+- `segmented_unit?` :: `LuaSegmentedUnit` [R] — The segmented unit object that the segment entity is a part of.
+- `selected_gun_index?` :: `uint32` [RW] — Index of the currently selected weapon slot of this character, car, or spidertron.
+- `selection_box` :: `BoundingBox` [R] — [LuaEntityPrototype::selection_box](runtime:LuaEntityPrototype::selection_box) around entity's given position and respecting the current entity orientation.
+- `send_to_orbit_automatically` :: `boolean` [RW] — Whether this rocket silo is set to send items to orbit automatically.
+- `shooting_target?` :: `LuaEntity` [RW] — The shooting target for this turret, if any.
+- `signal_state` :: `defines.signal_state` [R] — The state of this rail signal.
+- `spawn_shift` :: `double` [R]
+- `spawning_cooldown` :: `double` [R]
+- `speed?` :: `float` [RW] — The current speed if this is a car, rolling stock, projectile or spidertron, or the maximum speed if this is a unit.
+- `speed_bonus` :: `double` [R] — The speed bonus of this entity.
+- `splitter_filter?` :: `ItemFilter` [RW] — The filter for this splitter, if any is set.
+- `splitter_input_priority` :: `left | none | right` [RW] — The input priority for this splitter.
+- `splitter_output_priority` :: `left | none | right` [RW] — The output priority for this splitter.
+- `stack` :: `LuaItemStack` [R]
+- `status?` :: `defines.entity_status` [R] — The status of this entity, if any.
+- `sticked_to` :: `LuaEntity` [R] — The entity this sticker is sticked to.
+- `sticker_vehicle_modifiers?` :: `table` [R] — The vehicle modifiers applied to this entity through the attached stickers.
+- `stickers?` :: `array[LuaEntity]` [R] — The sticker entities attached to this entity, if any.
+- `storage_filter?` :: `ItemIDAndQualityIDPair` [RW] — The storage filter for this logistic storage container.
+- `supports_direction` :: `boolean` [R] — Whether the entity has direction.
+- `tags?` :: `Tags` [RW] — The tags associated with this entity ghost.
+- `temperature?` :: `double` [RW] — The temperature of this entity's heat energy source.
+- `tick_grown` :: `MapTick` [RW] — The tick when this plant is fully grown.
+- `tick_of_last_attack` :: `uint32` [RW] — The last tick this character entity was attacked.
+- `tick_of_last_damage` :: `uint32` [RW] — The last tick this character entity was damaged.
+- `tile_height` :: `uint32` [R] — Specifies the tiling size of the entity, is used to decide, if the center should be in the center of the tile (odd tile size dimension) or on the tile border (even tile size dimension).
+- `tile_width` :: `uint32` [R] — Specifies the tiling size of the entity, is used to decide, if the center should be in the center of the tile (odd tile size dimension) or on the tile border (even tile size dimension).
+- `time_to_live` :: `uint64` [RW] — The ticks left before a combat robot, highlight box, smoke, or sticker entity is destroyed.
+- `time_to_next_effect` :: `uint32` [RW] — The ticks until the next trigger effect of this smoke-with-trigger.
+- `timeout` :: `uint32` [RW] — The timeout that's left on this landmine in ticks.
+- `to_be_looted` :: `boolean` [RW] — Will this item entity be picked up automatically when the player walks over it?
+- `torso_orientation` :: `RealOrientation` [RW] — The torso orientation of this spider vehicle.
+- `train?` :: `LuaTrain` [R] — The train this rolling stock belongs to, if any.
+- `train_stop_priority` :: `uint8` [RW] — Priority of this train stop.
+- `trains_count` :: `uint32` [R] — Amount of trains related to this particular train stop.
+- `trains_in_block` :: `uint32` [R] — The number of trains in this rail block for this rail entity.
+- `trains_limit` :: `uint32` [RW] — Amount of trains above which no new trains will be sent to this train stop.
+- `transitional_request_target?` :: `LuaSpacePlatform` [R] — The space platform in orbit this rocket silo is automatically requesting items for.
+- `tree_color_index` :: `uint8` [RW] — Index of the tree color.
+- `tree_color_index_max` :: `uint8` [R] — Maximum index of the tree colors.
+- `tree_gray_stage_index` :: `uint8` [RW] — Index of the tree gray stage
+- `tree_gray_stage_index_max` :: `uint8` [R] — Maximum index of the tree gray stages.
+- `tree_stage_index` :: `uint8` [RW] — Index of the tree stage.
+- `tree_stage_index_max` :: `uint8` [R] — Maximum index of the tree stages.
+- `type` :: `string` [R] — The entity prototype type of this entity.
+- `unit_number?` :: `uint64` [R] — A unique number identifying this entity for the lifetime of the save.
+- `units` :: `array[LuaEntity]` [R] — The units associated with this spawner entity.
+- `use_filters` :: `boolean` [RW] — If set to 'true', this inserter will use filtering logic.
+- `use_transitional_requests` :: `boolean` [RW] — When true, the rocket silo will automatically request items for space platforms in orbit.
+- `valid` :: `boolean` [R] — Is this object valid? This Lua object holds a reference to an object within the game engine.
+- `valve_threshold_override?` :: `float` [RW] — The threshold override of this valve, or `nil` if an override is not defined.
+- `vehicle_automatic_targeting_parameters` :: `VehicleAutomaticTargetingParameters` [RW] — Read when this spidertron auto-targets enemies
+
+### Methods
+
+- `LuaEntity.add_autopilot_destination(position)` — Adds the given position to this spidertron's autopilot's queue of destinations.
+- `LuaEntity.add_market_item(offer)` — Offer a thing on the market.
+- `LuaEntity.apply_upgrade() → LuaEntity, LuaEntity` — Upgrades this entity in place if it's marked to be upgraded.
+- `LuaEntity.can_be_destroyed() → boolean` — Whether the entity can be destroyed
+- `LuaEntity.can_set_inventory_filter(filter, index, inventory_index) → boolean` — The same as [LuaInventory::can_set_filter](runtime:LuaInventory::can_set_filter) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::...
+- `LuaEntity.can_shoot(position, target) → boolean` — Whether this character can shoot the given entity or position.
+- `LuaEntity.can_wires_reach(entity) → boolean` — Can wires reach between these entities.
+- `LuaEntity.cancel_deconstruction(force, player?)` — Cancels deconstruction if it is scheduled, does nothing otherwise.
+- `LuaEntity.cancel_upgrade(force, player?) → boolean` — Cancels upgrade if it is scheduled, does nothing otherwise.
+- `LuaEntity.clear_fluid_inside()` — Remove all fluids from this entity.
+- `LuaEntity.clear_market_items()` — Removes all offers from a market.
+- `LuaEntity.clone({...}) → LuaEntity` — Clones this entity.
+  - `create_build_effect_smoke?` :: `boolean` — If false, the building effect smoke will not be shown around the new entity.
+  - `force?` :: `ForceID`
+  - `position` :: `MapPosition` — The destination position
+  - `surface?` :: `LuaSurface` — The destination surface
+- `LuaEntity.connect_linked_belts(neighbour?)` — Connects current linked belt with another one.
+- `LuaEntity.connect_rolling_stock(direction) → boolean` — Connects the rolling stock in the given direction.
+- `LuaEntity.copy_settings(by_player?, entity) → ItemWithQualityCounts` — Copies settings from the given entity onto this entity.
+- `LuaEntity.create_build_effect_smoke()` — Creates the same smoke that is created when you place a building by hand.
+- `LuaEntity.create_cargo_pod(cargo_hatch?) → LuaEntity` — Creates a cargo pod if possible.
+- `LuaEntity.damage(cause?, damage, force, source?, type?) → float` — Damages the entity.
+- `LuaEntity.deplete()` — Depletes and destroys this resource entity.
+- `LuaEntity.destroy({...}) → boolean` — Destroys the entity.
+  - `do_cliff_correction?` :: `boolean` — Whether neighbouring cliffs should be corrected.
+  - `player?` :: `PlayerIdentification` — The player whose undo queue this action should be added to.
+  - `raise_destroy?` :: `boolean` — If `true`, [script_raised_destroy](runtime:script_raised_destroy) will be called.
+  - `undo_index?` :: `uint32` — The index of the undo item to add this action to.
+- `LuaEntity.die(cause?, force?) → boolean` — Immediately kills the entity.
+- `LuaEntity.disconnect_linked_belts()` — Disconnects linked belt from its neighbour.
+- `LuaEntity.disconnect_rolling_stock(direction) → boolean` — Tries to disconnect this rolling stock in the given direction.
+- `LuaEntity.force_finish_ascending()` — Take an ascending cargo pod and safely make it skip all animation and immediately switch surface.
+- `LuaEntity.force_finish_descending()` — Take a descending cargo pod and safely make it arrive and deposit cargo.
+- `LuaEntity.get_beacon_effect_receivers() → array[LuaEntity]` — Returns a table with all entities affected by this beacon
+- `LuaEntity.get_beacons() → array[LuaEntity]` — Returns a table with all beacons affecting this effect receiver.
+- `LuaEntity.get_beam_source() → BeamTarget` — Get the source of this beam.
+- `LuaEntity.get_beam_target() → BeamTarget` — Get the target of this beam.
+- `LuaEntity.get_burnt_result_inventory() → LuaInventory` — The burnt result inventory for this entity or `nil` if this entity doesn't have a burnt result inventory.
+- `LuaEntity.get_cargo_bays() → array[LuaEntity]` — Gets the cargo bays connected to this cargo landing pad or space platform hub.
+- `LuaEntity.get_child_signals() → array[LuaEntity]` — Returns all child signals.
+- `LuaEntity.get_circuit_network(wire_connector_id) → LuaCircuitNetwork`
+- `LuaEntity.get_connected_rail({...}) → LuaEntity, defines.rail_direction, defines.rail_connection_direction`
+  - `rail_connection_direction` :: `defines.rail_connection_direction`
+  - `rail_direction` :: `defines.rail_direction`
+- `LuaEntity.get_connected_rails() → array[LuaEntity]` — Get the rails that this signal is connected to.
+- `LuaEntity.get_connected_rolling_stock(direction) → LuaEntity, defines.rail_direction` — Gets rolling stock connected to the given end of this stock.
+- `LuaEntity.get_control_behavior() → LuaControlBehavior` — Gets the control behavior of the entity (if any).
+- `LuaEntity.get_damage_to_be_taken() → float` — Returns the amount of damage to be taken by this entity.
+- `LuaEntity.get_driver() → LuaEntity | LuaPlayer` — Gets the driver of this vehicle if any.
+- `LuaEntity.get_electric_input_flow_limit(quality?) → double` — The input flow limit for the electric energy source.
+- `LuaEntity.get_electric_output_flow_limit(quality?) → double` — The output flow limit for the electric energy source.
+- `LuaEntity.get_filter(slot_index) → ItemFilter | EntityID | AsteroidChunkID` — Get the filter for a slot in an inserter, loader, mining drill, asteroid collector, or logistic storage container.
+- `LuaEntity.get_fluid(index) → Fluid` — Gets fluid of the index-th fluid storage.
+- `LuaEntity.get_fluid_contents() → dict[string → FluidAmount]` — Get amounts of all fluids in this entity.
+- `LuaEntity.get_fluid_count(fluid?) → double` — Get the amount of all or some fluid in this entity.
+- `LuaEntity.get_fluid_source_fluid() → string` — Checks what is expected fluid to be produced from the offshore pump's source tile.
+- `LuaEntity.get_fluid_source_tile() → TilePosition` — Gives TilePosition of a tile which this offshore pump uses to check what fluid should be produced.
+- `LuaEntity.get_fuel_inventory() → LuaInventory` — The fuel inventory for this entity or `nil` if this entity doesn't have a fuel inventory.
+- `LuaEntity.get_health_ratio() → float` — The health ratio of this entity between 1 and 0 (for full health and no health respectively).
+- `LuaEntity.get_heat_setting() → HeatSetting` — Gets the heat setting for this heat interface.
+- `LuaEntity.get_inbound_signals() → array[LuaEntity]` — Returns all signals guarding entrance to a rail block this rail belongs to.
+- `LuaEntity.get_infinity_container_filter(index) → InfinityInventoryFilter` — Gets the filter for this infinity container at the given index, or `nil` if the filter index doesn't exist or is empty.
+- `LuaEntity.get_infinity_pipe_filter() → InfinityPipeFilter` — Gets the filter for this infinity pipe, or `nil` if the filter is empty.
+- `LuaEntity.get_inventory_bar(inventory_index) → uint32` — The same as [LuaInventory::get_bar](runtime:LuaInventory::get_bar) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::get_inventory)...
+- `LuaEntity.get_inventory_filter(index, inventory_index) → ItemFilter` — The same as [LuaInventory::get_filter](runtime:LuaInventory::get_filter) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::get_inve...
+- `LuaEntity.get_inventory_size_override(inventory_index) → uint16` — Gets the inventory size override of the selected inventory if size override was set using [set_inventory_size_override](runtime:LuaEntity::set_inventory_size_override).
+- `LuaEntity.get_item_insert_specification(position) → uint32, float` — Get an item insert specification onto a belt connectable: for a given map position provides into which line at what position item should be inserted to be closest to the provided position.
+- `LuaEntity.get_line_item_position(index, position) → MapPosition` — Get a map position related to a position on a transport line.
+- `LuaEntity.get_logistic_point(index?) → LuaLogisticPoint | array[LuaLogisticPoint]` — Gets all the `LuaLogisticPoint`s that this entity owns.
+- `LuaEntity.get_logistic_sections() → LuaLogisticSections` — Gives logistic sections of this entity if it uses logistic sections.
+- `LuaEntity.get_market_items() → array[Offer]` — Get all offers in a market as an array.
+- `LuaEntity.get_max_transport_line_index() → defines.transport_line` — Get the maximum transport line index of a belt or belt connectable entity.
+- `LuaEntity.get_module_inventory() → LuaInventory` — Inventory for storing modules of this entity; `nil` if this entity has no module inventory.
+- `LuaEntity.get_movement() → Vector` — Gets the combined movement vector (direction and speed) of this combat robot or asteroid.
+- `LuaEntity.get_or_create_control_behavior() → LuaControlBehavior` — Gets (and or creates if needed) the control behavior of the entity.
+- `LuaEntity.get_outbound_signals() → array[LuaEntity]` — Returns all signals guarding exit from a rail block this rail belongs to.
+- `LuaEntity.get_output_inventory() → LuaInventory` — Gets the entity's output inventory if it has one.
+- `LuaEntity.get_parent_signals() → array[LuaEntity]` — Returns all parent signals.
+- `LuaEntity.get_passenger() → LuaEntity | LuaPlayer` — Gets the passenger of this car, spidertron, or cargo pod if any.
+- `LuaEntity.get_priority_target(index) → LuaEntityPrototype` — Get the entity ID at the specified position in the turret's priority list.
+- `LuaEntity.get_radius() → double` — The radius of this entity.
+- `LuaEntity.get_rail_end(direction) → LuaRailEnd` — Gets a LuaRailEnd object for specified end of this rail
+- `LuaEntity.get_rail_segment_end(direction) → LuaEntity, defines.rail_direction` — Get the rail at the end of the rail segment this rail is in.
+- `LuaEntity.get_rail_segment_length() → double` — Get the length of the rail segment this rail is in.
+- `LuaEntity.get_rail_segment_overlaps() → array[LuaEntity]` — Get a rail from each rail segment that overlaps with this rail's rail segment.
+- `LuaEntity.get_rail_segment_rails(direction) → array[LuaEntity]` — Get all rails of a rail segment this rail is in  A rail segment is a continuous section of rail with no branches, signals, nor train stops.
+- `LuaEntity.get_rail_segment_signal(direction, in_else_out) → LuaEntity` — Get the rail signal at the start/end of the rail segment this rail is in.
+- `LuaEntity.get_rail_segment_stop(direction) → LuaEntity` — Get train stop at the start/end of the rail segment this rail is in.
+- `LuaEntity.get_recipe() → LuaRecipe, LuaQualityPrototype` — Current recipe being assembled by this machine, if any.
+- `LuaEntity.get_signal(extra_wire_connector_id?, signal, wire_connector_id) → int32` — Read a single signal from the selected wire connector
+- `LuaEntity.get_signals(extra_wire_connector_id?, wire_connector_id) → array[Signal]` — Read all signals from the selected wire connector.
+- `LuaEntity.get_spider_legs() → array[LuaEntity]` — Gets legs of given SpiderVehicle.
+- `LuaEntity.get_stopped_train() → LuaTrain` — The train currently stopped at this train stop, if any.
+- `LuaEntity.get_train_stop_trains() → array[LuaTrain]` — The trains scheduled to stop at this train stop.
+- `LuaEntity.get_transport_line(index) → LuaTransportLine` — Get a transport line of a belt or belt connectable entity.
+- `LuaEntity.get_upgrade_target() → LuaEntityPrototype, LuaQualityPrototype` — Returns the new entity prototype and its quality.
+- `LuaEntity.get_wire_connector(or_create, wire_connector_id) → LuaWireConnector` — Gets a single wire connector of this entity, if any.
+- `LuaEntity.get_wire_connectors(or_create) → dict[defines.wire_connector_id → LuaWireConnector]` — Gets all wire connectors of this entity
+- `LuaEntity.ghost_has_flag(flag) → boolean` — Same as [LuaEntity::has_flag](runtime:LuaEntity::has_flag), but targets the inner entity on a entity ghost.
+- `LuaEntity.has_flag(flag) → boolean` — Test whether this entity's prototype has a certain flag set.
+- `LuaEntity.insert_fluid(fluid) → double` — Insert fluid into this entity.
+- `LuaEntity.inventory_supports_bar(inventory_index) → boolean` — The same as [LuaInventory::supports_bar](runtime:LuaInventory::supports_bar) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::get_...
+- `LuaEntity.inventory_supports_filters(inventory_index) → boolean` — The same as [LuaInventory::supports_filters](runtime:LuaInventory::supports_filters) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaContr...
+- `LuaEntity.is_closed() → boolean`
+- `LuaEntity.is_closing() → boolean`
+- `LuaEntity.is_connected_to_electric_network() → boolean` — Returns `true` if this entity produces or consumes electricity and is connected to an electric network that has at least one entity that can produce power.
+- `LuaEntity.is_crafting() → boolean` — Returns whether a craft is currently in process.
+- `LuaEntity.is_inventory_filtered(inventory_index) → boolean` — The same as [LuaInventory::is_filtered](runtime:LuaInventory::is_filtered) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::get_in...
+- `LuaEntity.is_opened() → boolean`
+- `LuaEntity.is_opening() → boolean`
+- `LuaEntity.is_rail_in_same_rail_block_as(other_rail) → boolean` — Checks if this rail and other rail both belong to the same rail block.
+- `LuaEntity.is_rail_in_same_rail_segment_as(other_rail) → boolean` — Checks if this rail and other rail both belong to the same rail segment.
+- `LuaEntity.is_registered_for_construction() → boolean` — Is this entity or tile ghost or item request proxy registered for construction? If false, it means a construction robot has been dispatched to build the entity, or it is not an entity that can be cons...
+- `LuaEntity.is_registered_for_deconstruction(force) → boolean` — Is this entity registered for deconstruction with this force? If false, it means a construction robot has been dispatched to deconstruct it, or it is not marked for deconstruction.
+- `LuaEntity.is_registered_for_repair() → boolean` — Is this entity registered for repair? If false, it means a construction robot has been dispatched to repair it, or it is not damaged.
+- `LuaEntity.is_registered_for_upgrade() → boolean` — Is this entity registered for upgrade? If false, it means a construction robot has been dispatched to upgrade it, or it is not marked for upgrade.
+- `LuaEntity.launch_rocket(character?, destination?) → boolean`
+- `LuaEntity.mine({...}) → boolean` — Mines this entity.
+  - `force?` :: `boolean` — If true, when the item(s) don't fit into the given inventory the entity is force mined.
+  - `ignore_minable?` :: `boolean` — If true, the minable state of the entity is ignored.
+  - `inventory?` :: `LuaInventory` — If provided the item(s) will be transferred into this inventory.
+  - `raise_destroyed?` :: `boolean` — If true, [script_raised_destroy](runtime:script_raised_destroy) will be raised.
+- `LuaEntity.order_deconstruction(force, player?, undo_index?) → boolean` — Sets the entity to be deconstructed by construction robots.
+- `LuaEntity.order_upgrade({...}) → boolean` — Sets the entity to be upgraded by construction robots.
+  - `force` :: `ForceID` — The force whose robots are supposed to do the upgrade.
+  - `player?` :: `PlayerIdentification` — The player whose undo queue this action should be added to.
+  - `target` :: `EntityWithQualityID` — The prototype of the entity to upgrade to.
+  - `undo_index?` :: `uint32` — The index of the undo item to add this action to.
+- `LuaEntity.play_note(instrument, note, stop_playing_sounds?) → boolean` — Plays a note with the given instrument and note.
+- `LuaEntity.register_tree(tree) → boolean` — Registers the given tree in this agricultural tower.
+- `LuaEntity.release_from_spawner()` — Release the unit from the spawner which spawned it.
+- `LuaEntity.remove_fluid({...}) → double` — Remove fluid from this entity.
+  - `amount` :: `double` — Amount to remove
+  - `maximum_temperature?` :: `double`
+  - `minimum_temperature?` :: `double`
+  - `name` :: `string` — Fluid prototype name.
+  - `temperature?` :: `double`
+- `LuaEntity.remove_market_item(offer) → boolean` — Remove an offer from a market.
+- `LuaEntity.request_to_close(force)`
+- `LuaEntity.request_to_open(extra_time?, force)`
+- `LuaEntity.revive({...}) → dict[string → uint32], LuaEntity, LuaEntity` — Revive a ghost, which turns it from a ghost into a real entity or tile.
+  - `overflow?` :: `LuaInventory` — Items that would be deleted will be transferred to this inventory.
+  - `raise_revive?` :: `boolean` — If true, and an entity ghost; [script_raised_revive](runtime:script_raised_revive) will be called.
+- `LuaEntity.rotate({...}) → boolean` — Rotates this entity as if the player rotated it.
+  - `by_player?` :: `PlayerIdentification`
+  - `reverse?` :: `boolean` — If `true`, rotate the entity in the counter-clockwise direction.
+- `LuaEntity.set_beam_source(source)` — Set the source of this beam.
+- `LuaEntity.set_beam_target(target)` — Set the target of this beam.
+- `LuaEntity.set_driver(driver)` — Sets the driver of this vehicle.
+- `LuaEntity.set_filter(filter?, index)` — Set the filter for a slot in an inserter (ItemFilter), loader (ItemFilter), mining drill (EntityID), asteroid collector (AsteroidChunkID) or logistic storage container (ItemWithQualityID).
+- `LuaEntity.set_fluid(fluid?, index) → Fluid` — Sets fluid to the index-th fluid storage.
+- `LuaEntity.set_heat_setting(filter)` — Sets the heat setting for this heat interface.
+- `LuaEntity.set_infinity_container_filter(filter, index)` — Sets the filter for this infinity container at the given index.
+- `LuaEntity.set_infinity_pipe_filter(filter)` — Sets the filter for this infinity pipe.
+- `LuaEntity.set_inventory_bar(bar?, inventory_index)` — The same as [LuaInventory::set_bar](runtime:LuaInventory::set_bar) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::get_inventory)...
+- `LuaEntity.set_inventory_filter(filter, index, inventory_index) → boolean` — The same as [LuaInventory::set_filter](runtime:LuaInventory::set_filter) but also works for ghosts where the inventory is not available through [LuaControl::get_inventory](runtime:LuaControl::get_inve...
+- `LuaEntity.set_inventory_size_override(inventory_index, overflow?, size_override)` — Sets inventory size override.
+- `LuaEntity.set_movement(direction, speed)` — Sets the movement direction and movement speed for this combat robot or asteroid.
+- `LuaEntity.set_passenger(passenger)` — Sets the passenger of this car, spidertron, or cargo pod.
+- `LuaEntity.set_priority_target(entity_id?, index)` — Set the entity ID name at the specified position in the turret's priority list.
+- `LuaEntity.set_recipe(quality?, recipe?) → ItemWithQualityCounts` — Sets the given recipe in this assembly machine.
+- `LuaEntity.silent_revive({...}) → ItemWithQualityCounts, LuaEntity, LuaEntity` — Revives a ghost silently, so the revival makes no sound and no smoke is created.
+  - `overflow?` :: `LuaInventory` — Items that would be deleted will be transferred to this inventory.
+  - `raise_revive?` :: `boolean` — If true, and an entity ghost; [script_raised_revive](runtime:script_raised_revive) will be called.
+- `LuaEntity.spawn_decorations()` — Triggers spawn_decoration actions defined in the entity prototype or does nothing if entity is not "turret" or "unit-spawner".
+- `LuaEntity.start_fading_out()` — Only works if the entity is a speech-bubble, with an "effect" defined in its wrapper_flow_style.
+- `LuaEntity.stop_spider()` — Sets the [speed](runtime:LuaEntity::speed) of the given SpiderVehicle to zero.
+- `LuaEntity.supports_backer_name() → boolean` — Whether this entity supports a backer name.
+- `LuaEntity.to_be_deconstructed() → boolean` — Is this entity marked for deconstruction?
+- `LuaEntity.to_be_upgraded() → boolean` — Is this entity marked for upgrade?
+- `LuaEntity.toggle_equipment_movement_bonus()` — Toggle this entity's equipment movement bonus.
+- `LuaEntity.update_connections()` — Reconnect loader, beacon, cliff and mining drill connections to entities that might have been teleported out or in by the script.
+
+## Class: LuaForce
+
+`LuaForce` encapsulates data local to each "force" or "faction" of the game.
+
+### Attributes
+
+- `ai_controllable` :: `boolean` [RW] — Enables some higher-level AI behaviour for this force.
+- `artillery_range_modifier` :: `double` [RW]
+- `beacon_distribution_modifier` :: `double` [RW]
+- `belt_stack_size_bonus` :: `uint32` [RW] — Belt stack size bonus.
+- `bulk_inserter_capacity_bonus` :: `uint32` [RW] — Number of items that can be transferred by bulk inserters.
+- `character_build_distance_bonus` :: `uint32` [RW]
+- `character_health_bonus` :: `double` [RW]
+- `character_inventory_slots_bonus` :: `uint32` [RW] — The number of additional inventory slots the character main inventory has.
+- `character_item_drop_distance_bonus` :: `uint32` [RW]
+- `character_item_pickup_distance_bonus` :: `double` [RW]
+- `character_logistic_requests` :: `boolean` [RW] — `true` if character requester logistics is enabled.
+- `character_loot_pickup_distance_bonus` :: `double` [RW]
+- `character_reach_distance_bonus` :: `uint32` [RW]
+- `character_resource_reach_distance_bonus` :: `double` [RW]
+- `character_running_speed_modifier` :: `double` [RW] — Modifies the running speed of all characters in this force by the given value as a percentage.
+- `character_trash_slot_count` :: `double` [RW] — Number of character trash slots.
+- `circuit_network_enabled` :: `boolean` [RW]
+- `cliff_deconstruction_enabled` :: `boolean` [RW] — When true, cliffs will be marked for deconstruction when trying to force-build things that collide.
+- `color` :: `Color` [R] — Effective color of this force.
+- `connected_players` :: `array[LuaPlayer]` [R] — The connected players belonging to this force.
+- `create_ghost_on_entity_death` :: `boolean` [RW] — When an entity dies, a ghost will be placed for automatic reconstruction.
+- `current_research?` :: `LuaTechnology` [R] — The currently ongoing technology research, if any.
+- `custom_color?` :: `Color` [RW] — Custom color for this force.
+- `deconstruction_time_to_live` :: `uint32` [RW] — The time, in ticks, before a deconstruction order is removed.
+- `following_robots_lifetime_modifier` :: `double` [RW] — Additional lifetime for following robots.
+- `friendly_fire` :: `boolean` [RW] — If friendly fire is enabled for this force.
+- `index` :: `uint32` [R] — This force's index in [LuaGameScript::forces](runtime:LuaGameScript::forces) (unique ID).
+- `inserter_stack_size_bonus` :: `double` [RW] — The inserter stack size bonus for non stack inserters
+- `items_launched` :: `dict[string → ItemCountType]` [R] — All of the items that have been launched in rockets.
+- `laboratory_productivity_bonus` :: `double` [RW]
+- `laboratory_speed_modifier` :: `double` [RW]
+- `logistic_networks` :: `dict[string → array[LuaLogisticNetwork]]` [R] — List of logistic networks, grouped by surface.
+- `manual_crafting_speed_modifier` :: `double` [RW] — Multiplier of the manual crafting speed.
+- `manual_mining_speed_modifier` :: `double` [RW] — Multiplier of the manual mining speed.
+- `max_failed_attempts_per_tick_per_construction_queue` :: `uint32` [RW]
+- `max_successful_attempts_per_tick_per_construction_queue` :: `uint32` [RW]
+- `maximum_following_robot_count` :: `uint32` [RW] — Maximum number of follower robots.
+- `mining_drill_productivity_bonus` :: `double` [RW]
+- `mining_with_fluid` :: `boolean` [RW]
+- `name` :: `string` [R] — Name of the force.
+- `object_name` :: `string` [R] — The class name of this object.
+- `platforms` :: `dict[uint32 → LuaSpacePlatform]` [R] — The space platforms that belong to this force mapped by their index value.
+- `players` :: `array[LuaPlayer]` [R] — Players belonging to this force.
+- `previous_research?` :: `LuaTechnology` [RW] — The previous research, if any.
+- `rail_planner_allow_elevated_rails` :: `boolean` [RW]
+- `rail_support_on_deep_oil_ocean` :: `boolean` [RW]
+- `recipes` :: `LuaCustomTable[string → LuaRecipe]` [R] — Recipes available to this force, indexed by `name`.
+- `research_enabled` :: `boolean` [R] — Whether research is enabled for this force, see [LuaForce::enable_research](runtime:LuaForce::enable_research) and [LuaForce::disable_research](runtime:LuaForce::disable_research).
+- `research_progress` :: `double` [RW] — Progress of current research, as a number in range `[0, 1]`.
+- `research_queue` :: `array[TechnologyID]` [RW] — The research queue of this force.
+- `rockets_launched` :: `uint32` [RW] — The number of rockets launched.
+- `share_chart` :: `boolean` [RW] — If sharing chart data is enabled for this force.
+- `technologies` :: `LuaCustomTable[string → LuaTechnology]` [R] — Technologies owned by this force, indexed by `name`.
+- `train_braking_force_bonus` :: `double` [RW]
+- `valid` :: `boolean` [R] — Is this object valid? This Lua object holds a reference to an object within the game engine.
+- `vehicle_logistics` :: `boolean` [RW] — When true, cars/tanks that support logistics will be able to use them.
+- `worker_robots_battery_modifier` :: `double` [RW]
+- `worker_robots_speed_modifier` :: `double` [RW]
+- `worker_robots_storage_bonus` :: `double` [RW]
+
+### Methods
+
+- `LuaForce.add_chart_tag(surface, tag) → LuaCustomChartTag` — Adds a custom chart tag to the given surface and returns the new tag or `nil` if the given position isn't valid for a chart tag.
+- `LuaForce.add_research(technology) → boolean` — Add this technology to the back of the research queue if the queue is enabled.
+- `LuaForce.cancel_charting(surface?)` — Cancels pending chart requests for the given surface or all surfaces.
+- `LuaForce.cancel_current_research()` — Stop the research currently in progress.
+- `LuaForce.chart(area, surface)` — Chart a portion of the map.
+- `LuaForce.chart_all(surface?)` — Chart all generated chunks.
+- `LuaForce.clear_chart(surface?)` — Erases chart data for this force.
+- `LuaForce.copy_chart(destination_surface, source_force, source_surface)` — Copies the given surface's chart from the given force to this force.
+- `LuaForce.copy_from(force)` — Copies all of the given changeable values (except charts) from the given force to this force.
+- `LuaForce.create_logistic_group(name, type?)` — Creates the given group if it doesn't already exist.
+- `LuaForce.create_space_platform({...}) → LuaSpacePlatform` — Creates a new space platform on this force.
+  - `name?` :: `string` — The platform name.
+  - `planet` :: `SpaceLocationID` — The planet that the platform will orbit.
+  - `starter_pack` :: `ItemWithQualityID` — The starter pack required to build the platform.
+- `LuaForce.delete_logistic_group(name, type?)` — Deletes the given logistic group if it exists.
+- `LuaForce.disable_all_prototypes()` — Disable all recipes and technologies.
+- `LuaForce.disable_research()` — Disable research for this force.
+- `LuaForce.enable_all_prototypes()` — Enables all recipes and technologies.
+- `LuaForce.enable_all_recipes()` — Unlock all recipes.
+- `LuaForce.enable_all_technologies()` — Unlock all technologies.
+- `LuaForce.enable_research()` — Enable research for this force.
+- `LuaForce.find_chart_tags(area?, surface) → array[LuaCustomChartTag]` — Finds all custom chart tags within a given area on the given surface.
+- `LuaForce.find_logistic_network_by_position(position, surface) → LuaLogisticNetwork`
+- `LuaForce.get_ammo_damage_modifier(ammo) → double`
+- `LuaForce.get_cease_fire(other) → boolean` — Is `other` force in this force's cease fire list?
+- `LuaForce.get_chunk_chart(chunk_position, surface) → string` — Gets the raw chart data for a given chunk as a binary string.
+- `LuaForce.get_entity_build_count_statistics(surface) → LuaFlowStatistics` — The entity build statistics for this force (built and mined) for the given surface.
+- `LuaForce.get_entity_count(name) → uint32` — Count entities of given type.
+- `LuaForce.get_evolution_factor(surface?) → double` — Fetches the evolution factor of this force on the given surface.
+- `LuaForce.get_evolution_factor_by_killing_spawners(surface?) → double` — Fetches the spawner kill part of the evolution factor of this force on the given surface.
+- `LuaForce.get_evolution_factor_by_pollution(surface?) → double` — Fetches the pollution part of the evolution factor of this force on the given surface.
+- `LuaForce.get_evolution_factor_by_time(surface?) → double` — Fetches the time part of the evolution factor of this force on the given surface.
+- `LuaForce.get_fluid_production_statistics(surface) → LuaFlowStatistics` — The fluid production statistics for this force for the given surface.
+- `LuaForce.get_friend(other) → boolean` — Is `other` force in this force's friends list.
+- `LuaForce.get_gun_speed_modifier(ammo) → double`
+- `LuaForce.get_hand_crafting_disabled_for_recipe(recipe) → boolean` — Gets if the given recipe is explicitly disabled from being hand crafted.
+- `LuaForce.get_item_launched(item) → uint32` — Gets the count of a given item launched in rockets.
+- `LuaForce.get_item_production_statistics(surface) → LuaFlowStatistics` — The item production statistics for this force for the given surface.
+- `LuaForce.get_kill_count_statistics(surface) → LuaFlowStatistics` — The kill counter statistics for this force for the given surface.
+- `LuaForce.get_linked_inventory(link_id, prototype) → LuaInventory` — Gets the linked inventory for the given prototype and link ID if it exists or `nil`.
+- `LuaForce.get_logistic_group(name, type?) → LogisticGroup` — Gets the information about the given logistic group.
+- `LuaForce.get_logistic_groups(type?) → array[string]` — Gets the names of the current logistic groups.
+- `LuaForce.get_spawn_position(surface) → MapPosition`
+- `LuaForce.get_surface_hidden(surface) → boolean`
+- `LuaForce.get_turret_attack_modifier(turret) → double`
+- `LuaForce.is_chunk_charted(chunk_position, surface) → boolean` — Has a chunk been charted?
+- `LuaForce.is_chunk_requested_for_charting(chunk_position, surface) → boolean` — Has a chunk been requested for charting?
+- `LuaForce.is_chunk_visible(chunk_position, surface) → boolean` — Is the given chunk currently charted and visible (not covered by fog of war) on the map.
+- `LuaForce.is_enemy(other) → boolean` — Is this force an enemy? This differs from `get_cease_fire` in that it is always false for neutral force.
+- `LuaForce.is_friend(other) → boolean` — Is this force a friend? This differs from `get_friend` in that it is always true for neutral force.
+- `LuaForce.is_pathfinder_busy() → boolean` — Is pathfinder busy? When the pathfinder is busy, it won't accept any more pathfinding requests.
+- `LuaForce.is_quality_unlocked(quality)` — Is the specified quality unlocked for this force?
+- `LuaForce.is_space_location_unlocked(name)` — Is the specified planet unlocked for this force?
+- `LuaForce.is_space_platforms_unlocked() → boolean` — Are the space platforms unlocked? This basically just controls the availability of the space platforms button.
+- `LuaForce.kill_all_units()` — Kill all units and flush the pathfinder.
+- `LuaForce.lock_quality(quality)` — Locks the quality to not be accessible to this force.
+- `LuaForce.lock_space_location(name)` — Locks the planet to not be accessible to this force.
+- `LuaForce.lock_space_platforms()` — Locks the space platforms, which disables the space platforms button
+- `LuaForce.play_sound(sound_specification)` — Play a sound for every player in this force.
+- `LuaForce.print(message, print_settings?)` — Print text to the chat console of all players on this force.
+- `LuaForce.rechart(surface?)` — Force a rechart of the whole chart.
+- `LuaForce.research_all_technologies(include_disabled_prototypes?)` — Research all technologies.
+- `LuaForce.reset()` — Reset everything.
+- `LuaForce.reset_evolution()` — Resets evolution for this force to zero.
+- `LuaForce.reset_recipes()` — Load the original version of all recipes from the prototypes.
+- `LuaForce.reset_technologies()` — Load the original versions of technologies from prototypes.
+- `LuaForce.reset_technology_effects()` — Reapplies all possible research effects, including unlocked recipes.
+- `LuaForce.script_trigger_research(technology)` — Trigger the "scripted" [research trigger](runtime:ResearchTrigger) of a technology, researching it.
+- `LuaForce.set_ammo_damage_modifier(ammo, modifier)`
+- `LuaForce.set_cease_fire(cease_fire, other)` — Add `other` force to this force's cease fire list.
+- `LuaForce.set_evolution_factor(factor, surface?)` — Sets the evolution factor of this force on the given surface.
+- `LuaForce.set_evolution_factor_by_killing_spawners(factor, surface?)` — Sets the spawner kill part of the evolution factor of this force on the given surface.
+- `LuaForce.set_evolution_factor_by_pollution(factor, surface?)` — Sets the pollution part of the evolution factor of this force on the given surface.
+- `LuaForce.set_evolution_factor_by_time(factor, surface?)` — Sets the time part of the evolution factor of this force on the given surface.
+- `LuaForce.set_friend(friend, other)` — Add `other` force to this force's friends list.
+- `LuaForce.set_gun_speed_modifier(ammo, modifier)`
+- `LuaForce.set_hand_crafting_disabled_for_recipe(hand_crafting_disabled, recipe)` — Sets if the given recipe can be hand-crafted.
+- `LuaForce.set_item_launched(count, item)` — Sets the count of a given item launched in rockets.
+- `LuaForce.set_spawn_position(position, surface)`
+- `LuaForce.set_surface_hidden(hidden, surface)`
+- `LuaForce.set_turret_attack_modifier(modifier, turret)`
+- `LuaForce.unchart_chunk(chunk_position, surface)`
+- `LuaForce.unlock_quality(quality)` — Unlocks the quality to be accessible to this force.
+- `LuaForce.unlock_space_location(name)` — Unlocks the planet to be accessible to this force.
+- `LuaForce.unlock_space_platforms()` — Unlocks the space platforms, which enables the space platforms button
+
+## Class: LuaGameScript
+
+Main toplevel type, provides access to most of the API though its members.
+
+### Attributes
+
+- `allow_debug_settings` :: `boolean` [RW] — Whether players who are not [admins](runtime:LuaPlayer::admin) can access all debug settings.
+- `allow_tip_activation` :: `boolean` [RW] — If the tips are allowed to be activated in this scenario, it is false by default.
+- `autosave_enabled` :: `boolean` [RW] — True by default.
+- `backer_names` :: `LuaCustomTable[uint32 → string]` [R] — Array of the names of all the backers that supported the game development early on.
+- `blueprints` :: `array[LuaRecord]` [R] — Records contained in the "game blueprints" tab of the blueprint library.
+- `connected_players` :: `array[LuaPlayer]` [R] — The players that are currently online.
+- `console_command_used` :: `boolean` [R] — Whether a console command has been used.
+- `default_map_gen_settings` :: `MapGenSettings` [R] — The default map gen settings for this save.
+- `difficulty` :: `defines.difficulty` [R] — Current scenario difficulty.
+- `difficulty_settings` :: `DifficultySettings` [R] — The currently active set of difficulty settings.
+- `draw_resource_selection` :: `boolean` [RW] — True by default.
+- `enemy_has_vision_on_land_mines` :: `boolean` [RW] — Determines if enemy land mines are completely invisible or not.
+- `finished` :: `boolean` [R] — True while the victory screen is shown.
+- `finished_but_continuing` :: `boolean` [R] — True after players finished the game and clicked "continue".
+- `forces` :: `LuaCustomTable[uint32 | string → LuaForce]` [R] — Get a table of all the forces that currently exist.
+- `map_settings` :: `MapSettings` [R] — The currently active set of map settings.
+- `object_name` :: `string` [R] — The class name of this object.
+- `permissions` :: `LuaPermissionGroups` [R]
+- `planets` :: `LuaCustomTable[string → LuaPlanet]` [R]
+- `player?` :: `LuaPlayer` [R] — This property is only populated inside [custom command](runtime:LuaCommandProcessor) handlers and when writing [Lua console commands](https://wiki.factorio.com/Console#Scripting_and_cheat_commands).
+- `players` :: `LuaCustomTable[uint32 | string → LuaPlayer]` [R] — Get a table of all the players that currently exist.
+- `simulation` :: `LuaSimulation` [R] — Simulation-related functions, or `nil` if the current game is not a simulation.
+- `speed` :: `float` [RW] — Speed to update the map at.
+- `surfaces` :: `LuaCustomTable[uint32 | string → LuaSurface]` [R] — Get a table of all the surfaces that currently exist.
+- `technology_notifications_enabled` :: `boolean` [RW] — True by default.
+- `tick` :: `MapTick` [R] — Current map tick.
+- `tick_paused` :: `boolean` [RW] — If the tick has been paused.
+- `ticks_played` :: `MapTick` [R] — The number of ticks since this game was created using either "new game" or "new game from scenario".
+- `ticks_to_run` :: `uint32` [RW] — The number of ticks to be run while the tick is paused.
+- `train_manager` :: `LuaTrainManager` [R]
+
+### Methods
+
+- `LuaGameScript.auto_save(name?)` — Instruct the game to perform an auto-save.
+- `LuaGameScript.ban_player(player, reason?)` — Bans the given player from this multiplayer game.
+- `LuaGameScript.check_consistency()` — Run internal consistency checks.
+- `LuaGameScript.create_force(force) → LuaForce` — Create a new force.
+- `LuaGameScript.create_inventory(gui_title?, size) → LuaInventory` — Creates an inventory that is not owned by any game object.
+- `LuaGameScript.create_profiler(stopped?) → LuaProfiler` — Creates a [LuaProfiler](runtime:LuaProfiler), which is used for measuring script performance.
+- `LuaGameScript.create_random_generator(seed?) → LuaRandomGenerator` — Creates a deterministic standalone random generator with the given seed or if a seed is not provided the initial map seed is used.
+- `LuaGameScript.create_surface(name, settings?) → LuaSurface` — Create a new surface.
+- `LuaGameScript.delete_surface(surface) → boolean` — Deletes the given surface and all entities on it if possible.
+- `LuaGameScript.disable_replay()` — Disables replay saving for the current save file.
+- `LuaGameScript.force_crc()` — Force a CRC check.
+- `LuaGameScript.get_entity_by_tag(tag) → LuaEntity` — Gets an entity by its [name tag](runtime:LuaEntity::name_tag).
+- `LuaGameScript.get_entity_by_unit_number(unit_number) → LuaEntity` — Returns entity with a specified unit number or nil if entity with such number was not found or prototype does not have [EntityPrototypeFlags::get-by-unit-number](prototype:EntityPrototypeFlags::get_by...
+- `LuaGameScript.get_map_exchange_string() → string` — Gets the map exchange string for the map generation settings that were used to create this map.
+- `LuaGameScript.get_player(player) → LuaPlayer` — Gets the given player or returns `nil` if no player is found.
+- `LuaGameScript.get_pollution_statistics(surface) → LuaFlowStatistics` — The pollution statistics for this the given surface.
+- `LuaGameScript.get_script_inventories(mod?) → dict[string → array[LuaInventory]]` — Gets the inventories created through [LuaGameScript::create_inventory](runtime:LuaGameScript::create_inventory).
+- `LuaGameScript.get_surface(surface) → LuaSurface` — Gets the given surface or returns `nil` if no surface is found.
+- `LuaGameScript.get_vehicles({...}) → array[LuaEntity]` — Returns vehicles in game.
+  - `force?` :: `ForceID`
+  - `has_passenger?` :: `boolean`
+  - `is_moving?` :: `boolean`
+  - `surface?` :: `SurfaceIdentification`
+  - `type?` :: `EntityID | array[EntityID]`
+  - `unit_number?` :: `uint32`
+- `LuaGameScript.is_demo() → boolean` — Is this the demo version of Factorio?
+- `LuaGameScript.is_multiplayer() → boolean` — Whether the save is loaded as a multiplayer map.
+- `LuaGameScript.kick_player(player, reason?)` — Kicks the given player from this multiplayer game.
+- `LuaGameScript.merge_forces(destination, source)` — Marks two forces to be merged together.
+- `LuaGameScript.mute_player(player)` — Mutes the given player.
+- `LuaGameScript.play_sound(sound_specification)` — Play a sound for every player in the game.
+- `LuaGameScript.print(message, print_settings?)` — Print text to the chat console all players.
+- `LuaGameScript.purge_player(player)` — Purges the given players messages from the game.
+- `LuaGameScript.regenerate_entity(entities)` — Regenerate autoplacement of some entities on all surfaces.
+- `LuaGameScript.reload_mods()` — Forces a reload of all mods.
+- `LuaGameScript.reload_script()` — Forces a reload of the scenario script from the original scenario location.
+- `LuaGameScript.remove_offline_players(players?)` — Remove players who are currently not connected from the map.
+- `LuaGameScript.reset_game_state()` — Reset scenario state (game_finished, player_won, etc.).
+- `LuaGameScript.reset_time_played()` — Resets the amount of time played for this map.
+- `LuaGameScript.save_atlas()` — Saves the current configuration of Atlas to a file.
+- `LuaGameScript.server_save(name?)` — Instruct the server to save the map.
+- `LuaGameScript.set_game_state({...})` — Set scenario state.
+  - `can_continue?` :: `boolean`
+  - `game_finished?` :: `boolean`
+  - `next_level?` :: `string`
+  - `player_won?` :: `boolean`
+- `LuaGameScript.set_lose_ending_info({...})` — Set losing ending information for the current scenario.
+  - `bullet_points?` :: `array[LocalisedString]`
+  - `final_message?` :: `LocalisedString`
+  - `image_path?` :: `string`
+  - `message?` :: `LocalisedString`
+  - `title` :: `LocalisedString`
+- `LuaGameScript.set_wait_for_screenshots_to_finish()` — Forces the screenshot saving system to wait until all queued screenshots have been written to disk.
+- `LuaGameScript.set_win_ending_info({...})` — Set winning ending information for the current scenario.
+  - `bullet_points?` :: `array[LocalisedString]`
+  - `final_message?` :: `LocalisedString`
+  - `image_path?` :: `string`
+  - `message?` :: `LocalisedString`
+  - `title` :: `LocalisedString`
+- `LuaGameScript.show_message_dialog({...})` — Show an in-game message dialog.
+  - `image?` :: `string` — Path to an image to show on the dialog
+  - `point_to?` :: `GuiArrowSpecification` — If specified, dialog will show an arrow pointing to this place.
+  - `style?` :: `string` — The gui style to use for this speech bubble.
+  - `text` :: `LocalisedString` — What the dialog should say
+  - `wrapper_frame_style?` :: `string` — Must be of type flow_style.
+- `LuaGameScript.take_screenshot({...})` — Take a screenshot of the game and save it to the `script-output` folder, located in the game's [user data directory](https://wiki.factorio.com/User_data_directory).
+  - `allow_in_replay?` :: `boolean` — Whether to save the screenshot even during replay playback.
+  - `anti_alias?` :: `boolean` — Whether to render in double resolution and downscale the result (including GUI).
+  - `by_player?` :: `PlayerIdentification` — If defined, the screenshot will only be taken for this player.
+  - `daytime?` :: `double` — Overrides the current surface daytime for the duration of screenshot rendering.
+  - `force_render?` :: `boolean` — Screenshot requests are processed in between game update and render.
+  - `hide_clouds?` :: `boolean` — If `true` cloud shadows on ground won't be rendered.
+  - `hide_fog?` :: `boolean` — If `true` fog effect and foreground space dust effect won't be rendered.
+  - `path?` :: `string` — The name of the image file.
+  - `player?` :: `PlayerIdentification` — The player to focus on.
+  - `position?` :: `MapPosition` — If defined, the screenshot will be centered on this position.
+  - `quality?` :: `int32` — The `.jpg` render quality as a percentage (from 0% to 100% inclusive), if used.
+  - `resolution?` :: `TilePosition` — The maximum allowed resolution is 16384x16384 (8192x8192 when `anti_alias` is `true`), but the maximum recommended resolution is 4096x4096 (resp.
+  - `show_cursor_building_preview?` :: `boolean` — When `true` and when `player` is specified, the building preview for the item in the player's cursor will also be rendered.
+  - `show_entity_info?` :: `boolean` — Whether to include entity info ("Alt mode") or not.
+  - `show_gui?` :: `boolean` — Whether to include GUIs in the screenshot or not.
+  - `surface?` :: `SurfaceIdentification` — If defined, the screenshot will be taken on this surface.
+  - `water_tick?` :: `uint32` — Overrides the tick of water animation, if animated water is enabled.
+  - `zoom?` :: `double` — The map zoom to take the screenshot at.
+- `LuaGameScript.take_technology_screenshot({...})` — Take a screenshot of the technology screen and save it to the `script-output` folder, located in the game's [user data directory](https://wiki.factorio.com/User_data_directory).
+  - `path?` :: `string` — The name of the image file.
+  - `player` :: `PlayerIdentification` — The screenshot will be taken for this player.
+  - `quality?` :: `int32` — The `.jpg` render quality as a percentage (from 0% to 100% inclusive), if used.
+  - `selected_technology?` :: `TechnologyID` — The technology to highlight.
+  - `skip_disabled?` :: `boolean` — If `true`, disabled technologies will be skipped.
+- `LuaGameScript.unban_player(player)` — Unbans the given player from this multiplayer game.
+- `LuaGameScript.unmute_player(player)` — Unmutes the given player.
+
+## Class: LuaGuiElement
+
+An element of a custom GUI.
+
+### Attributes
+
+- `allow_decimal` :: `boolean` [RW] — Whether this textfield (when in numeric mode) allows decimal numbers.
+- `allow_negative` :: `boolean` [RW] — Whether this textfield (when in numeric mode) allows negative numbers.
+- `allow_none_state` :: `boolean` [RW] — Whether the `"none"` state is allowed for this switch.
+- `anchor?` :: `GuiAnchor` [RW] — The anchor for this relative widget, if any.
+- `auto_center` :: `boolean` [RW] — Whether this frame auto-centers on window resize when stored in [LuaGui::screen](runtime:LuaGui::screen).
+- `auto_toggle` :: `boolean` [RW] — Whether this button will automatically toggle when clicked.
+- `badge_text` :: `LocalisedString` [RW] — The text to display after the normal tab text (designed to work with numbers)
+- `caption` :: `LocalisedString` [RW] — The text displayed on this element.
+- `children` :: `array[LuaGuiElement]` [R] — The child-elements of this GUI element.
+- `children_names` :: `array[string]` [R] — Names of all the children of this element.
+- `clicked_sprite` :: `SpritePath` [RW] — The sprite to display on this sprite-button when it is clicked.
+- `column_count` :: `uint32` [R] — The number of columns in this table.
+- `direction` :: `GuiDirection` [R] — Direction of this element's layout.
+- `drag_target?` :: `LuaGuiElement` [RW] — The `frame` that is being moved when dragging this GUI element, if any.
+- `draw_horizontal_line_after_headers` :: `boolean` [RW] — Whether this table should draw a horizontal grid line below the first table row.
+- `draw_horizontal_lines` :: `boolean` [RW] — Whether this table should draw horizontal grid lines.
+- `draw_vertical_lines` :: `boolean` [RW] — Whether this table should draw vertical grid lines.
+- `elem_filters?` :: `PrototypeFilter` [RW] — The elem filters of this choose-elem-button, if any.
+- `elem_tooltip?` :: `ElemID` [RW] — The element tooltip to display when hovering over this element, or `nil`.
+- `elem_type` :: `ElemType` [R] — The elem type of this choose-elem-button.
+- `elem_value?` :: `string | SignalID | PrototypeWithQuality` [RW] — The elem value of this choose-elem-button, if any.
+- `enabled` :: `boolean` [RW] — Whether this GUI element is enabled.
+- `entity?` :: `LuaEntity` [RW] — The entity associated with this entity-preview, camera, minimap, if any.
+- `force?` :: `string` [RW] — The force this minimap is using, if any.
+- `game_controller_interaction` :: `defines.game_controller_interaction` [RW] — How this element should interact with game controllers.
+- `gui` :: `LuaGui` [R] — The GUI this element is a child of.
+- `horizontal_scroll_policy` :: `ScrollPolicy` [RW] — Policy of the horizontal scroll bar.
+- `hovered_sprite` :: `SpritePath` [RW] — The sprite to display on this sprite-button when it is hovered.
+- `icon_selector` :: `boolean` [R] — Whether this textfield or text-box was created with an icon selector.
+- `ignored_by_interaction` :: `boolean` [RW] — Whether this GUI element is ignored by interaction.
+- `index` :: `uint32` [R] — The index of this GUI element (unique amongst the GUI elements of a LuaPlayer).
+- `is_password` :: `boolean` [RW] — Whether this textfield displays as a password field, which renders all characters as `*`.
+- `items` :: `array[LocalisedString]` [RW] — The items in this dropdown or listbox.
+- `left_label_caption` :: `LocalisedString` [RW] — The text shown for the left switch label.
+- `left_label_tooltip` :: `LocalisedString` [RW] — The tooltip shown on the left switch label.
+- `location?` :: `GuiLocation` [RW] — The location of this widget when stored in [LuaGui::screen](runtime:LuaGui::screen).
+- `locked` :: `boolean` [RW] — Whether this choose-elem-button can be changed by the player.
+- `lose_focus_on_confirm` :: `boolean` [RW] — Whether this textfield loses focus after [defines.events.on_gui_confirmed](runtime:defines.events.on_gui_confirmed) is fired.
+- `minimap_player_index` :: `uint32` [RW] — The player index this minimap is using.
+- `mouse_button_filter` :: `MouseButtonFlags` [RW] — The mouse button filters for this button or sprite-button.
+- `name` :: `string` [RW] — The name of this element.
+- `number?` :: `double` [RW] — The number to be shown in the bottom right corner of this sprite-button, or `nil` to show nothing.
+- `numeric` :: `boolean` [RW] — Whether this textfield is limited to only numeric characters.
+- `object_name` :: `string` [R] — The class name of this object.
+- `parent?` :: `LuaGuiElement` [R] — The direct parent of this element.
+- `player_index` :: `uint32` [R] — Index into [LuaGameScript::players](runtime:LuaGameScript::players) specifying the player who owns this element.
+- `position` :: `MapPosition` [RW] — The position this camera or minimap is focused on, if any.
+- `quality?` :: `LuaQualityPrototype` [RW] — The quality to be shown in the bottom left corner of this sprite-button, or `nil` to show nothing.
+- `raise_hover_events` :: `boolean` [RW] — Whether this element will raise [on_gui_hover](runtime:on_gui_hover) and [on_gui_leave](runtime:on_gui_leave).
+- `read_only` :: `boolean` [RW] — Whether this text-box is read-only.
+- `resize_to_sprite` :: `boolean` [RW] — Whether the sprite widget should resize according to the sprite in it.
+- `right_label_caption` :: `LocalisedString` [RW] — The text shown for the right switch label.
+- `right_label_tooltip` :: `LocalisedString` [RW] — The tooltip shown on the right switch label.
+- `selectable` :: `boolean` [RW] — Whether the contents of this text-box are selectable.
+- `selected_index` :: `uint32` [RW] — The selected index for this dropdown or listbox.
+- `selected_tab_index?` :: `uint32` [RW] — The selected tab index for this tabbed pane, if any.
+- `show_percent_for_small_numbers` :: `boolean` [RW] — Related to the number to be shown in the bottom right corner of this sprite-button.
+- `slider_value` :: `double` [RW] — The value of this slider element.
+- `sprite` :: `SpritePath` [RW] — The sprite to display on this sprite-button or sprite in the default state.
+- `state` :: `boolean` [RW] — Is this checkbox or radiobutton checked?
+- `style` :: `LuaStyle | string` [RW] — The style of this element.
+- `surface_index` :: `uint32` [RW] — The surface index this camera or minimap is using.
+- `switch_state` :: `SwitchState` [RW] — The switch state for this switch.
+- `tabs` :: `array[TabAndContent]` [R] — The tabs and contents being shown in this tabbed-pane.
+- `tags` :: `Tags` [RW] — The tags associated with this LuaGuiElement.
+- `text` :: `string` [RW] — The text contained in this textfield or text-box.
+- `toggled` :: `boolean` [RW] — Whether this button is currently toggled.
+- `tooltip` :: `LocalisedString` [RW] — The text to display when hovering over this element.
+- `type` :: `GuiElementType` [R] — The type of this GUI element.
+- `valid` :: `boolean` [R] — Is this object valid? This Lua object holds a reference to an object within the game engine.
+- `value` :: `double` [RW] — How much this progress bar is filled.
+- `vertical_centering` :: `boolean` [RW] — Whether the content of this table should be vertically centered.
+- `vertical_scroll_policy` :: `ScrollPolicy` [RW] — Policy of the vertical scroll bar.
+- `visible` :: `boolean` [RW] — Sets whether this GUI element is visible or completely hidden, taking no space in the layout.
+- `word_wrap` :: `boolean` [RW] — Whether this text-box will word-wrap automatically.
+- `zoom` :: `double` [RW] — The zoom this camera or minimap is using.
+
+### Methods
+
+- `LuaGuiElement.add({...}) → LuaGuiElement` — Add a new child element to this GuiElement.
+  - `anchor?` :: `GuiAnchor` — Where to position the child element when in the `relative` element.
+  - `caption?` :: `LocalisedString` — Text displayed on the child element.
+  - `elem_tooltip?` :: `ElemID` — Elem tooltip of the child element.
+  - `enabled?` :: `boolean` — Whether the child element is enabled.
+  - `game_controller_interaction?` :: `defines.game_controller_interaction` — How the element should interact with game controllers.
+  - `ignored_by_interaction?` :: `boolean` — Whether the child element is ignored by interaction.
+  - `index?` :: `uint32` — Location in its parent that the child element should slot into.
+  - `locked?` :: `boolean` — Whether the child element is locked.
+  - `name?` :: `string` — Name of the child element.
+  - `raise_hover_events?` :: `boolean` — Whether this element will raise [on_gui_hover](runtime:on_gui_hover) and [on_gui_leave](runtime:on_gui_leave).
+  - `style?` :: `string` — The name of the style prototype to apply to the new element.
+  - `tags?` :: `Tags` — [Tags](runtime:Tags) associated with the child element.
+  - `tooltip?` :: `LocalisedString` — Tooltip of the child element.
+  - `type` :: `GuiElementType` — The kind of element to add, which potentially has its own attributes as listed below.
+  - `visible?` :: `boolean` — Whether the child element is visible.
+- `LuaGuiElement.add_item(index?, string)` — Inserts a string at the end or at the given index of this dropdown or listbox.
+- `LuaGuiElement.add_tab(content, tab)` — Adds the given tab and content widgets to this tabbed pane as a new tab.
+- `LuaGuiElement.bring_to_front()` — Moves this GUI element to the "front" so it will draw over other elements.
+- `LuaGuiElement.clear()` — Remove children of this element.
+- `LuaGuiElement.clear_items()` — Removes the items in this dropdown or listbox.
+- `LuaGuiElement.close_dropdown()` — Closes the dropdown list if this is a dropdown and it is open.
+- `LuaGuiElement.destroy()` — Remove this element, along with its children.
+- `LuaGuiElement.focus()` — Focuses this GUI element if possible.
+- `LuaGuiElement.force_auto_center()` — Forces this frame to re-auto-center.
+- `LuaGuiElement.get_index_in_parent() → uint32` — Gets the index that this element has in its parent element.
+- `LuaGuiElement.get_item(index) → LocalisedString` — Gets the item at the given index from this dropdown or listbox.
+- `LuaGuiElement.get_mod() → string` — The mod that owns this Gui element or `nil` if it's owned by the scenario script.
+- `LuaGuiElement.get_slider_discrete_values() → boolean` — Returns whether this slider only allows discrete values.
+- `LuaGuiElement.get_slider_maximum() → double` — Gets this sliders maximum value.
+- `LuaGuiElement.get_slider_minimum() → double` — Gets this sliders minimum value.
+- `LuaGuiElement.get_slider_value_step() → double` — Gets the minimum distance this slider can move.
+- `LuaGuiElement.remove_item(index)` — Removes the item at the given index from this dropdown or listbox.
+- `LuaGuiElement.remove_tab(tab?)` — Removes the given tab and its associated content from this tabbed pane.
+- `LuaGuiElement.scroll_to_bottom()` — Scrolls this scroll bar to the bottom.
+- `LuaGuiElement.scroll_to_element(element, scroll_mode?)` — Scrolls this scroll bar such that the specified GUI element is visible to the player.
+- `LuaGuiElement.scroll_to_item(index, scroll_mode?)` — Scrolls the scroll bar such that the specified listbox item is visible to the player.
+- `LuaGuiElement.scroll_to_left()` — Scrolls this scroll bar to the left.
+- `LuaGuiElement.scroll_to_right()` — Scrolls this scroll bar to the right.
+- `LuaGuiElement.scroll_to_top()` — Scrolls this scroll bar to the top.
+- `LuaGuiElement.select(end_index, start_index)` — Selects a range of text in this textbox.
+- `LuaGuiElement.select_all()` — Selects all the text in this textbox.
+- `LuaGuiElement.set_item(index, string)` — Sets the given string at the given index in this dropdown or listbox.
+- `LuaGuiElement.set_slider_discrete_values(value)` — Sets whether this slider only allows discrete values.
+- `LuaGuiElement.set_slider_minimum_maximum(maximum, minimum)` — Sets this sliders minimum and maximum values.
+- `LuaGuiElement.set_slider_value_step(value)` — Sets the minimum distance this slider can move.
+- `LuaGuiElement.swap_children(index_1, index_2)` — Swaps the children at the given indices in this element.
+
+## Class: LuaHelpers
+
+Provides various helper and utility functions.
+
+### Attributes
+
+- `game_version` :: `string` [R] — Current version of game
+- `object_name` :: `string` [R] — The class name of this object.
+
+### Methods
+
+- `LuaHelpers.check_prototype_translations()` — Goes over all items, entities, tiles, recipes, technologies among other things and logs if the locale is incorrect.
+- `LuaHelpers.compare_versions(first, second) → int32` — Compares 2 version strings.
+- `LuaHelpers.create_profiler(stopped?) → LuaProfiler` — Creates a [LuaProfiler](runtime:LuaProfiler), which is used for measuring script performance.
+- `LuaHelpers.decode_string(string) → string` — Base64 decodes and inflates the given string.
+- `LuaHelpers.direction_to_string(direction) → string` — Converts the given direction into the string version of the direction.
+- `LuaHelpers.encode_string(string) → string` — Deflates and base64 encodes the given string.
+- `LuaHelpers.evaluate_expression(expression, variables?) → double` — Evaluate an expression, substituting variables as provided.
+- `LuaHelpers.is_valid_sound_path(sound_path) → boolean` — Checks if the given SoundPath is valid.
+- `LuaHelpers.is_valid_sprite_path(sprite_path) → boolean` — Checks if the given SpritePath is valid and contains a loaded sprite.
+- `LuaHelpers.json_to_table(json) → AnyBasic` — Convert a JSON string to a table.
+- `LuaHelpers.multilingual_to_lower(input) → string` — Converts the given string to lowercase and returns it.
+- `LuaHelpers.parse_map_exchange_string(map_exchange_string) → MapExchangeStringData` — Convert a map exchange string to map gen settings and map settings.
+- `LuaHelpers.recv_udp(for_player?)` — Dispatch [defines.events.on_udp_packet_received](runtime:defines.events.on_udp_packet_received) events for any new packets received by the specified player or the server.
+- `LuaHelpers.remove_path(path)` — Remove a file or directory in the `script-output` folder, located in the game's [user data directory](https://wiki.factorio.com/User_data_directory).
+- `LuaHelpers.send_udp(data, for_player?, port)` — Send data to a UDP port on localhost for a specified player, if enabled.
+- `LuaHelpers.table_to_json(data) → string` — Convert a table to a JSON string
+- `LuaHelpers.write_file(append?, data, filename, for_player?)` — Write a file to the `script-output` folder, located in the game's [user data directory](https://wiki.factorio.com/User_data_directory).
+
+## Class: LuaPlayer (extends LuaControl)
+
+A player in the game.
+
+### Attributes
+
+- `admin` :: `boolean` [RW] — `true` if the player is an admin.
+- `afk_time` :: `uint32` [R] — How many ticks since the last action of this player.
+- `auto_sort_main_inventory` :: `boolean` [R] — If the main inventory will be auto sorted.
+- `blueprint_to_setup` :: `LuaItemStack` [R] — The item stack containing a blueprint to be setup.
+- `blueprints` :: `array[LuaRecord]` [R] — Records contained in the player's blueprint library.
+- `centered_on?` :: `LuaEntity` [RW] — The entity being centered on in remote view.
+- `character?` :: `LuaEntity` [RW] — The character attached to this player, if any.
+- `chat_color` :: `Color` [RW] — The color used when this player talks in game.
+- `color` :: `Color` [RW] — The color associated with the player.
+- `connected` :: `boolean` [R] — `true` if the player is currently connected to the game.
+- `controller_type` :: `defines.controllers` [R]
+- `cursor_stack_temporary` :: `boolean` [RW] — Returns true if the current item stack in cursor will be destroyed after clearing the cursor.
+- `cutscene_character?` :: `LuaEntity` [R] — When in a cutscene; the character this player would be using once the cutscene is over, if any.
+- `display_density_scale` :: `double` [R] — The display density scale for this player.
+- `display_resolution` :: `DisplayResolution` [R] — The display resolution for this player.
+- `display_scale` :: `double` [R] — The display scale for this player.
+- `drag_target?` :: `DragTarget` [R] — The wire drag target for this player, if any.
+- `entity_copy_source?` :: `LuaEntity` [R] — The source entity used during entity settings copy-paste, if any.
+- `game_view_settings` :: `GameViewSettings` [RW] — The player's game view settings.
+- `gui` :: `LuaGui` [R]
+- `hand_location?` :: `ItemStackLocation` [RW] — The original location of the item in the cursor, marked with a hand.
+- `index` :: `uint32` [R] — This player's index in [LuaGameScript::players](runtime:LuaGameScript::players) (unique ID).
+- `infinity_inventory_filters` :: `array[InfinityInventoryFilter]` [RW] — The filters for this map editor infinity inventory settings.
+- `input_method` :: `defines.input_method` [R] — The input method of the player, mouse and keyboard or game controller
+- `last_online` :: `uint32` [R] — At what tick this player was last online.
+- `locale` :: `string` [R] — The active locale for this player.
+- `map_view_settings` :: `nil` [W] — The player's map view settings.
+- `minimap_enabled` :: `boolean` [RW] — `true` if the minimap is visible.
+- `mod_settings` :: `LuaCustomTable[string → ModSetting]` [R] — The current per-player settings for the this player, indexed by prototype name.
+- `name` :: `string` [R] — The player's username.
+- `object_name` :: `string` [R] — The class name of this object.
+- `online_time` :: `uint32` [R] — How many ticks did this player spend playing this save (all sessions combined).
+- `opened_self` :: `boolean` [R] — `true` if the player opened itself.
+- `permission_group?` :: `LuaPermissionGroup` [RW] — The permission group this player is part of, if any.
+- `physical_controller_type` :: `defines.controllers` [R] — The player's "physical" controller.
+- `physical_position` :: `MapPosition` [R] — The current position of this player's physical controller.
+- `physical_surface` :: `LuaSurface` [R] — The surface this player's physical controller is on.
+- `physical_surface_index` :: `uint32` [R] — Unique ID associated with the surface this player's physical controller is currently on.
+- `physical_vehicle?` :: `LuaEntity` [R] — The current vehicle of this player's physical controller.
+- `remove_unfiltered_items` :: `boolean` [RW] — If items not included in this map editor infinity inventory filters should be removed.
+- `render_mode` :: `defines.render_mode` [R] — The render mode of the player, like map or zoom to world.
+- `show_on_map` :: `boolean` [RW] — If `true`, circle and name of given player is rendered on the map/chart.
+- `spectator` :: `boolean` [RW] — If `true`, zoom-to-world noise effect will be disabled and environmental sounds will be based on zoom-to-world view instead of position of player's character.
+- `spidertron_remote_selection?` :: `array[LuaEntity]` [RW] — All SpiderVehicles currently selected by the player, if they are holding a spidertron remote.
+- `stashed_controller_type?` :: `defines.controllers` [R] — The stashed controller type, if any.
+- `tag` :: `string` [RW] — The tag that is shown after the player in chat, on the map and above multiplayer selection rectangles.
+- `ticks_to_respawn?` :: `uint32` [RW] — The number of ticks until this player will respawn.
+- `undo_redo_stack` :: `LuaUndoRedoStack` [R] — The undo and redo stack for this player.
+- `valid` :: `boolean` [R] — Is this object valid? This Lua object holds a reference to an object within the game engine.
+- `zoom` :: `double` [RW] — The current player controller's zoom level.
+- `zoom_limits` :: `ZoomLimits` [RW] — The player's current controller's zoom limits.
+
+### Methods
+
+- `LuaPlayer.activate_paste()` — Gets a copy of the currently selected blueprint in the clipboard queue into the player's cursor, as if the player activated Paste.
+- `LuaPlayer.add_alert(entity, type)` — Adds an alert to this player for the given entity of the given alert type.
+- `LuaPlayer.add_custom_alert(entity, icon, message, show_on_map)` — Adds a custom alert to this player.
+- `LuaPlayer.add_pin({...})` — Adds a pin to this player for the given pin specification.
+  - `always_visible?` :: `boolean` — Defaults to `true`.
+  - `entity?` :: `LuaEntity` — The entity to pin.
+  - `label?` :: `string`
+  - `player?` :: `PlayerIdentification` — The player to pin.
+  - `position?` :: `MapPosition` — Where to create the pin.
+  - `preview_distance?` :: `uint16` — Defaults to `16`.
+  - `surface?` :: `SurfaceIdentification` — The surface to create the pin on.
+- `LuaPlayer.add_recipe_notification(recipe)` — Adds the given recipe to the list of recipe notifications for this player.
+- `LuaPlayer.add_to_clipboard(blueprint)` — Adds the given blueprint to this player's clipboard queue.
+- `LuaPlayer.associate_character(character)` — Associates a character with this player.
+- `LuaPlayer.build_from_cursor({...})` — Builds whatever is in the cursor on the surface the player is on.
+  - `build_mode?` :: `defines.build_mode` — Which build mode should be used instead of normal build.
+  - `direction?` :: `defines.direction` — Direction the entity would be placed
+  - `flip_horizontal?` :: `boolean` — Whether to flip the blueprint horizontally.
+  - `flip_vertical?` :: `boolean` — Whether to flip the blueprint vertically.
+  - `mirror?` :: `boolean` — Whether to mirror the entity
+  - `position` :: `MapPosition` — Where the entity would be placed
+  - `skip_fog_of_war?` :: `boolean` — If chunks covered by fog-of-war are skipped.
+  - `terrain_building_size?` :: `uint32` — The size for building terrain if building terrain.
+- `LuaPlayer.can_build_from_cursor({...}) → boolean` — Checks if this player can build what ever is in the cursor on the surface the player is on.
+  - `build_mode?` :: `defines.build_mode` — Which build mode should be used instead of normal build.
+  - `direction?` :: `defines.direction` — Direction the entity would be placed
+  - `flip_horizontal?` :: `boolean` — Whether to flip the blueprint horizontally.
+  - `flip_vertical?` :: `boolean` — Whether to flip the blueprint vertically.
+  - `position` :: `MapPosition` — Where the entity would be placed
+  - `skip_fog_of_war?` :: `boolean` — If chunks covered by fog-of-war are skipped.
+  - `terrain_building_size?` :: `uint32` — The size for building terrain if building terrain.
+- `LuaPlayer.clear_console()` — Clear the chat console.
+- `LuaPlayer.clear_cursor() → boolean` — Invokes the "clear cursor" action on the player as if the user pressed it.
+- `LuaPlayer.clear_inventory_highlights()` — Clears the blinking of the inventory based on insertion of items
+- `LuaPlayer.clear_local_flying_texts()` — Clear any active flying texts for this player.
+- `LuaPlayer.clear_recipe_notification(recipe)` — Clears the given recipe from the list of recipe notifications for this player.
+- `LuaPlayer.clear_recipe_notifications()` — Clears all recipe notifications for this player.
+- `LuaPlayer.clear_selection()` — Clears the player's selection tool selection position.
+- `LuaPlayer.connect_to_server({...})` — Asks the player if they would like to connect to the given server.
+  - `address` :: `string` — The server (address:port) if port is not given the default Factorio port is used.
+  - `description?` :: `LocalisedString`
+  - `name?` :: `LocalisedString` — The name of the server.
+  - `password?` :: `string` — The password if different from the one used to join this game.
+- `LuaPlayer.create_character(character?) → boolean` — Creates and attaches a character entity to this player.
+- `LuaPlayer.create_local_flying_text({...})` — Spawn flying text that is only visible to this player.
+  - `color?` :: `Color` — The color of the flying text.
+  - `create_at_cursor?` :: `boolean` — If `true`, the flying text is created at the player's cursor.
+  - `position?` :: `MapPosition` — The location on the map at which to show the flying text.
+  - `speed?` :: `double` — The speed at which the text rises upwards in tiles/second.
+  - `surface?` :: `SurfaceIdentification` — The surface which this text will be shown on.
+  - `text` :: `LocalisedString` — The flying text to show.
+  - `time_to_live?` :: `uint32` — The amount of ticks that the flying text will be shown for.
+- `LuaPlayer.disable_alert(alert_type) → boolean` — Disables alerts for the given alert category.
+- `LuaPlayer.disable_recipe_groups()` — Disable recipe groups.
+- `LuaPlayer.disable_recipe_subgroups()` — Disable recipe subgroups.
+- `LuaPlayer.disassociate_character(character)` — Disassociates a character from this player.
+- `LuaPlayer.drag_wire({...}) → boolean` — Start/end wire dragging at the specified location, wire type is based on the cursor contents
+  - `position` :: `MapPosition` — Position at which cursor was clicked.
+- `LuaPlayer.enable_alert(alert_type) → boolean` — Enables alerts for the given alert category.
+- `LuaPlayer.enable_recipe_groups()` — Enable recipe groups.
+- `LuaPlayer.enable_recipe_subgroups()` — Enable recipe subgroups.
+- `LuaPlayer.enter_space_platform(space_platform) → boolean` — Enters the given space platform if possible.
+- `LuaPlayer.exit_cutscene()` — Exit the current cutscene.
+- `LuaPlayer.exit_remote_view()` — Exit remote view if possible.
+- `LuaPlayer.get_active_quick_bar_page(index) → uint8` — Gets which quick bar page is being used for the given screen page or `nil` if not known.
+- `LuaPlayer.get_alerts({...}) → dict[uint32 → dict[defines.alert_type → array[Alert]]]` — Get all alerts matching the given filters, or all alerts if no filters are given.
+  - `entity?` :: `LuaEntity`
+  - `position?` :: `MapPosition`
+  - `prototype?` :: `LuaEntityPrototype`
+  - `surface?` :: `SurfaceIdentification`
+  - `type?` :: `defines.alert_type`
+- `LuaPlayer.get_associated_characters() → array[LuaEntity]` — The characters associated with this player.
+- `LuaPlayer.get_goal_description() → LocalisedString` — Get the current goal description, as a localised string.
+- `LuaPlayer.get_infinity_inventory_filter(index) → InfinityInventoryFilter` — Gets the filter for this map editor infinity filters at the given index or `nil` if the filter index doesn't exist or is empty.
+- `LuaPlayer.get_quick_bar_slot(index) → ItemFilter` — Gets the quick bar filter for the given slot or `nil`.
+- `LuaPlayer.get_recipe_notifications() → array[LuaRecipePrototype]` — Get all recipes that currently have recipe notifications for this player.
+- `LuaPlayer.is_alert_enabled(alert_type) → boolean` — If the given alert type is currently enabled.
+- `LuaPlayer.is_alert_muted(alert_type) → boolean` — If the given alert type is currently muted.
+- `LuaPlayer.is_shortcut_available(prototype_name) → boolean` — Is a custom Lua shortcut currently available?
+- `LuaPlayer.is_shortcut_toggled(prototype_name) → boolean` — Is a custom Lua shortcut currently toggled?
+- `LuaPlayer.jump_to_cutscene_waypoint(waypoint_index)` — Jump to the specified cutscene waypoint.
+- `LuaPlayer.land_on_planet() → boolean` — Ejects this player from the current space platform and lands on the current planet.
+- `LuaPlayer.leave_space_platform()` — Ejects this player from the current space platform if in a platform.
+- `LuaPlayer.mute_alert(alert_type) → boolean` — Mutes alerts for the given alert category.
+- `LuaPlayer.pipette(allow_ghost?, id, quality?) → boolean` — Invokes the "smart pipette" action on the player as if the user pressed it.
+- `LuaPlayer.pipette_entity(allow_ghost?, entity) → boolean` — Invokes the "smart pipette" action on the player as if the user pressed it.
+- `LuaPlayer.play_sound(sound_specification)` — Play a sound for this player.
+- `LuaPlayer.print(message, print_settings?)` — Print text to the chat console.
+- `LuaPlayer.print_entity_statistics(entities?)` — Print entity statistics to the player's console.
+- `LuaPlayer.print_lua_object_statistics()` — Print LuaObject counts per mod.
+- `LuaPlayer.print_robot_jobs()` — Print construction robot job counts to the player's console.
+- `LuaPlayer.remove_alert({...})` — Removes all alerts matching the given filters or if an empty filters table is given all alerts are removed.
+  - `entity?` :: `LuaEntity`
+  - `icon?` :: `SignalID`
+  - `message?` :: `LocalisedString`
+  - `position?` :: `MapPosition`
+  - `prototype?` :: `EntityID`
+  - `surface?` :: `SurfaceIdentification`
+  - `type?` :: `defines.alert_type`
+- `LuaPlayer.request_translation(localised_string) → uint32` — Requests a translation for the given localised string.
+- `LuaPlayer.request_translations(localised_strings) → array[uint32]` — Requests translation for the given set of localised strings.
+- `LuaPlayer.set_active_quick_bar_page(page_index, screen_index)` — Sets which quick bar page is being used for the given screen page.
+- `LuaPlayer.set_controller({...})` — Set the controller type of the player.
+  - `character?` :: `LuaEntity` — Entity to control.
+  - `chart_mode_cutoff?` :: `double` — If specified and `type` is [defines.controllers.cutscene](runtime:defines.controllers.cutscene), the game will switch to chart-mode (map zoomed out) rendering when the zoom level is less than this val...
+  - `final_transition_time?` :: `uint32` — If specified and `type` is [defines.controllers.cutscene](runtime:defines.controllers.cutscene), it is the time in ticks it will take for the camera to pan from the final waypoint back to the starting...
+  - `position?` :: `MapPosition` — If specified and `type` is [defines.controllers.remote](runtime:defines.controllers.remote), the position the remote controller will be centered on.
+  - `start_position?` :: `MapPosition` — If specified and `type` is [defines.controllers.cutscene](runtime:defines.controllers.cutscene), the cutscene will start at this position.
+  - `start_zoom?` :: `double` — If specified and `type` is [defines.controllers.cutscene](runtime:defines.controllers.cutscene), the cutscene will start at this zoom level.
+  - `surface?` :: `SurfaceIdentification` — If specified and `type` is [defines.controllers.remote](runtime:defines.controllers.remote), the surface the remote controller will be put on.
+  - `type` :: `defines.controllers` — Which controller to use.
+  - `waypoints?` :: `array[CutsceneWaypoint]` — List of waypoints for the cutscene controller.
+- `LuaPlayer.set_ending_screen_data(file?, message)` — Setup the screen to be shown when the game is finished.
+- `LuaPlayer.set_goal_description(only_update?, text?)` — Set the text in the goal window (top left).
+- `LuaPlayer.set_infinity_inventory_filter(filter, index)` — Sets the filter for this map editor infinity filters at the given index.
+- `LuaPlayer.set_quick_bar_slot(filter, index)` — Sets the quick bar filter for the given slot.
+- `LuaPlayer.set_shortcut_available(available, prototype_name)` — Make a custom Lua shortcut available or unavailable.
+- `LuaPlayer.set_shortcut_toggled(prototype_name, toggled)` — Toggle or untoggle a custom Lua shortcut
+- `LuaPlayer.set_zoom_limits(controller_type, zoom_limits)` — Sets the zoom limits for a specific controller type.
+- `LuaPlayer.start_selection(position, selection_mode)` — Starts selection with selection tool from the specified position.
+- `LuaPlayer.swap_characters(player) → boolean` — Swaps this player's character with another player's character.
+- `LuaPlayer.toggle_map_editor()` — Toggles this player into or out of the map editor.
+- `LuaPlayer.unlock_achievement(name)` — Unlock the achievements of the given player.
+- `LuaPlayer.unmute_alert(alert_type) → boolean` — Unmutes alerts for the given alert category.
+- `LuaPlayer.use_from_cursor(position)` — Uses the current item in the cursor if it's a capsule or does nothing if not.
+
+## Class: LuaSurface
+
+A "domain" of the world, such as a planet or space platform.
+
+### Attributes
+
+- `always_day` :: `boolean` [RW] — When set to true, the sun will always shine.
+- `brightness_visual_weights` :: `ColorModifier` [RW] — Defines how surface daytime brightness influences each color channel of the current color lookup table (LUT).
+- `darkness` :: `float` [R] — Amount of darkness at the current time, as a number in range `[0, 1]`.
+- `dawn` :: `double` [RW] — The daytime when dawn starts.
+- `daytime` :: `double` [RW] — Current time of day, as a number in range `[0, 1)`.
+- `daytime_parameters` :: `table` [RW] — Parameters of daytime.
+- `deletable` :: `boolean` [R] — If this surface can be deleted.
+- `dusk` :: `double` [RW] — The daytime when dusk starts.
+- `evening` :: `double` [RW] — The daytime when evening starts.
+- `freeze_daytime` :: `boolean` [RW] — True if daytime is currently frozen.
+- `generate_with_lab_tiles` :: `boolean` [RW] — When set to true, new chunks will be generated with lab tiles, instead of using the surface's map generation settings.
+- `global_effect?` :: `ModuleEffects` [RW] — Surface-wide effects applied to entities with effect receivers.
+- `global_electric_network_statistics?` :: `LuaFlowStatistics` [R] — The global electric network statistics for this surface.
+- `has_global_electric_network` :: `boolean` [R] — Whether this surface currently has a global electric network.
+- `ignore_surface_conditions` :: `boolean` [RW] — If surface condition checks should not be performed on this surface.
+- `index` :: `uint32` [R] — This surface's index in [LuaGameScript::surfaces](runtime:LuaGameScript::surfaces) (unique ID).
+- `localised_name?` :: `LocalisedString` [RW] — Localised name of this surface.
+- `map_gen_settings` :: `MapGenSettings` [RW] — The generation settings for this surface.
+- `min_brightness` :: `double` [RW] — The minimal brightness during the night.
+- `morning` :: `double` [RW] — The daytime when morning starts.
+- `name` :: `string` [RW] — The name of this surface.
+- `no_enemies_mode` :: `boolean` [RW] — Is no-enemies mode enabled on this surface?
+- `object_name` :: `string` [R] — The class name of this object.
+- `peaceful_mode` :: `boolean` [RW] — Is peaceful mode enabled on this surface?
+- `planet?` :: `LuaPlanet` [R] — The planet associated with this surface, if there is one.
+- `platform?` :: `LuaSpacePlatform` [R]
+- `pollutant_type?` :: `LuaAirbornePollutantPrototype` [R] — The type of pollutant enabled on the surface, or `nil` if no pollutant is enabled.
+- `pollution_statistics` :: `LuaFlowStatistics` [R] — The pollution statistics for this surface.
+- `show_clouds` :: `boolean` [RW] — If clouds are shown on this surface.
+- `solar_power_multiplier` :: `double` [RW] — The multiplier of solar power on this surface.
+- `ticks_per_day` :: `uint32` [RW] — The number of ticks per day for this surface.
+- `valid` :: `boolean` [R] — Is this object valid? This Lua object holds a reference to an object within the game engine.
+- `wind_orientation` :: `RealOrientation` [RW] — Current wind direction.
+- `wind_orientation_change` :: `double` [RW] — Change in wind orientation per tick.
+- `wind_speed` :: `double` [RW] — Current wind speed in tiles per tick.
+
+### Methods
+
+- `LuaSurface.add_script_area(area) → uint32` — Adds the given script area.
+- `LuaSurface.add_script_position(position) → uint32` — Adds the given script position.
+- `LuaSurface.build_checkerboard(area)` — Sets the given area to the checkerboard lab tiles.
+- `LuaSurface.build_enemy_base(force?, position, unit_count)` — Send a group to build a new base.
+- `LuaSurface.calculate_tile_properties(positions, property_names) → dict[string → array[double]]` — Calculate values for a list of tile properties at a list of positions.
+- `LuaSurface.can_fast_replace({...}) → boolean` — If there exists an entity at the given location that can be fast-replaced with the given entity parameters.
+  - `direction?` :: `defines.direction` — Direction the entity would be placed.
+  - `force?` :: `ForceID` — The force that would place the entity.
+  - `name` :: `EntityID` — Name of the entity to check.
+  - `position` :: `MapPosition` — Where the entity would be placed.
+- `LuaSurface.can_place_entity({...}) → boolean` — Check for collisions with terrain or other entities.
+  - `build_check_type?` :: `defines.build_check_type` — Which type of check should be carried out.
+  - `direction?` :: `defines.direction` — Direction of the placed entity.
+  - `force?` :: `ForceID` — The force that would place the entity.
+  - `forced?` :: `boolean` — If `true`, entities that can be marked for deconstruction are ignored.
+  - `inner_name?` :: `string` — The prototype name of the entity contained in the ghost.
+  - `name` :: `EntityID` — Name of the entity prototype to check.
+  - `position` :: `MapPosition` — Where the entity would be placed.
+- `LuaSurface.cancel_deconstruct_area({...})` — Cancel a deconstruction order.
+  - `area` :: `BoundingBox` — The area to cancel deconstruction orders in.
+  - `force` :: `ForceID` — The force whose deconstruction orders to cancel.
+  - `item?` :: `LuaItemStack` — The deconstruction item to use if any.
+  - `player?` :: `PlayerIdentification` — The player to set the last_user to, if any.
+  - `skip_fog_of_war?` :: `boolean` — If chunks covered by fog-of-war are skipped.
+  - `super_forced?` :: `boolean` — If the cancel deconstruction is super-forced.
+  - `undo_index?` :: `uint32` — The index of the undo item to add this action to.
+- `LuaSurface.cancel_upgrade_area({...})` — Cancel a upgrade order.
+  - `area` :: `BoundingBox` — The area to cancel upgrade orders in.
+  - `force` :: `ForceID` — The force whose upgrade orders to cancel.
+  - `item` :: `LuaItemStack` — The upgrade item to use.
+  - `player?` :: `PlayerIdentification` — The player to set the last_user to if any.
+  - `skip_fog_of_war?` :: `boolean` — If chunks covered by fog-of-war are skipped.
+- `LuaSurface.clear(ignore_characters?)` — Clears this surface deleting all entities and chunks on it.
+- `LuaSurface.clear_hidden_tiles()` — Completely removes hidden and double hidden tiles data on this surface.
+- `LuaSurface.clear_pollution()` — Clears all pollution on this surface.
+- `LuaSurface.clear_territory_for_chunks(chunk_positions)` — Removes the chunk from the territory it is associated with (if any) and allows the map generator to potentially generate a new territory for the chunk in the future.
+- `LuaSurface.clone_area({...})` — Clones the given area.
+  - `clear_destination_decoratives?` :: `boolean` — If the destination decoratives should be cleared
+  - `clear_destination_entities?` :: `boolean` — If the destination entities should be cleared
+  - `clone_decoratives?` :: `boolean` — If decoratives should be cloned
+  - `clone_entities?` :: `boolean` — If entities should be cloned
+  - `clone_tiles?` :: `boolean` — If tiles should be cloned
+  - `create_build_effect_smoke?` :: `boolean` — If true, the building effect smoke will be shown around the new entities.
+  - `destination_area` :: `BoundingBox`
+  - `destination_force?` :: `ForceID`
+  - `destination_surface?` :: `SurfaceIdentification`
+  - `expand_map?` :: `boolean` — If the destination surface should be expanded when destination_area is outside current bounds.
+  - `source_area` :: `BoundingBox`
+- `LuaSurface.clone_brush({...})` — Clones the given area.
+  - `clear_destination_decoratives?` :: `boolean` — If the destination decoratives should be cleared
+  - `clear_destination_entities?` :: `boolean` — If the destination entities should be cleared
+  - `clone_decoratives?` :: `boolean` — If decoratives should be cloned
+  - `clone_entities?` :: `boolean` — If entities should be cloned
+  - `clone_tiles?` :: `boolean` — If tiles should be cloned
+  - `create_build_effect_smoke?` :: `boolean` — If true, the building effect smoke will be shown around the new entities.
+  - `destination_force?` :: `LuaForce | string`
+  - `destination_offset` :: `TilePosition`
+  - `destination_surface?` :: `SurfaceIdentification`
+  - `expand_map?` :: `boolean` — If the destination surface should be expanded when destination_area is outside current bounds.
+  - `manual_collision_mode?` :: `boolean` — If manual-style collision checks should be done.
+  - `source_offset` :: `TilePosition`
+  - `source_positions` :: `array[TilePosition]`
+- `LuaSurface.clone_entities({...})` — Clones the given entities.
+  - `create_build_effect_smoke?` :: `boolean` — If true, the building effect smoke will be shown around the new entities.
+  - `destination_force?` :: `ForceID`
+  - `destination_offset` :: `Vector`
+  - `destination_surface?` :: `SurfaceIdentification`
+  - `entities` :: `array[LuaEntity]`
+  - `snap_to_grid?` :: `boolean`
+- `LuaSurface.count_entities_filtered(filter) → uint32` — Count entities of given type or name in a given area.
+- `LuaSurface.count_tiles_filtered(filter) → uint32` — Count tiles of a given name in a given area.
+- `LuaSurface.create_decoratives({...})` — Adds the given decoratives to the surface.
+  - `check_collision?` :: `boolean` — If collision should be checked against entities/tiles.
+  - `decoratives` :: `array[Decorative]`
+- `LuaSurface.create_entities_from_blueprint_string({...}) → int32` — This method only works when used in simulations.
+  - `by_player?` :: `PlayerIdentification` — The player that placed the blueprint.
+  - `direction?` :: `defines.direction` — The direction to place the blueprint in.
+  - `flip_horizontal?` :: `boolean` — Whether to flip the blueprint horizontally.
+  - `flip_vertical?` :: `boolean` — Whether to flip the blueprint vertically.
+  - `force?` :: `ForceID` — The force to place the blueprint for.
+  - `position` :: `MapPosition` — The position to place the blueprint at.
+  - `string` :: `string` — The blueprint string to import.
+- `LuaSurface.create_entity({...}) → LuaEntity` — Create an entity on this surface.
+  - `burner_fuel_inventory?` :: `BlueprintInventoryWithFilters` — Used by entities with a burner energy source.
+  - `cause?` :: `LuaEntity | ForceID` — Cause entity / force.
+  - `character?` :: `LuaEntity` — If fast_replace is true simulate fast replace using this character.
+  - `create_build_effect_smoke?` :: `boolean` — If false, the building effect smoke will not be shown around the new entity.
+  - `direction?` :: `defines.direction` — Desired orientation of the entity after creation.
+  - `fast_replace?` :: `boolean` — If true, building will attempt to simulate fast-replace building.
+  - `force?` :: `ForceID` — Force of the entity, default is enemy.
+  - `item?` :: `LuaItemStack` — If provided, the entity will attempt to pull stored values from this item (for example; creating a spidertron from a previously named and mined spidertron)
+  - `mirror?` :: `boolean` — Whether this entity is mirrored.
+  - `move_stuck_players?` :: `boolean` — If true, any characters that are in the way of the entity are teleported out of the way.
+  - `name` :: `EntityID` — The entity prototype name to create.
+  - `player?` :: `PlayerIdentification` — If given set the last_user to this player.
+  - `position` :: `MapPosition` — Where to create the entity.
+  - `preserve_ghosts_and_corpses?` :: `boolean` — If true, colliding ghosts and corpses will not be removed by the creation of some entity types.
+  - `quality?` :: `QualityID` — Quality of the entity to be created.
+  - `raise_built?` :: `boolean` — If true; [defines.events.script_raised_built](runtime:defines.events.script_raised_built) will be fired on successful entity creation.
+  - `register_plant?` :: `boolean` — If true, plants created will register in any in-range agricultural towers.
+  - `snap_to_grid?` :: `boolean` — If false the exact position given is used to instead of snapping to the normal entity grid.
+  - `source?` :: `LuaEntity | MapPosition` — Source entity.
+  - `spawn_decorations?` :: `boolean` — If true, entity types that have [spawn_decoration](runtime:LuaEntityPrototype::spawn_decorations) property will apply triggers defined in the property.
+  - `spill?` :: `boolean` — If false while fast_replace is true and player is nil any items from fast-replacing will be deleted instead of dropped on the ground.
+  - `target?` :: `LuaEntity | MapPosition` — Entity with health for the new entity to target.
+  - `undo_index?` :: `uint32` — The index of the undo item to add this action to.
+- `LuaSurface.create_global_electric_network()` — Creates a global electric network for this surface, if one doesn't exist already.
+- `LuaSurface.create_particle({...})` — Creates a particle at the given location
+  - `frame_speed` :: `float`
+  - `height` :: `float`
+  - `movement` :: `Vector`
+  - `name` :: `ParticleID` — The particle name.
+  - `position` :: `MapPosition` — Where to create the particle.
+  - `vertical_speed` :: `float`
+- `LuaSurface.create_segmented_unit({...}) → LuaSegmentedUnit` — Create a segmented unit on the surface.
+  - `force?` :: `ForceID` — Force of the segmented unit.
+  - `name` :: `EntityID` — The segmented-unit prototype name to create.
+  - `quality?` :: `QualityID` — Quality of the entity to be created.
+  - `territory?` :: `LuaTerritory` — The territory that the segmented unit is assigned to.
+- `LuaSurface.create_territory({...}) → LuaTerritory` — Create a territory on the surface.
+  - `chunks` :: `array[ChunkPosition]` — The chunks to assign to the new territory.
+  - `patrol_path?` :: `array[MapPosition]` — The path that patrolling units will follow.
+- `LuaSurface.create_trivial_smoke({...})`
+  - `name` :: `TrivialSmokeID` — The smoke prototype name to create.
+  - `position` :: `MapPosition` — Where to create the smoke.
+- `LuaSurface.create_unit_group({...}) → LuaCommandable` — Create a new unit group at a given position.
+  - `force?` :: `ForceID` — Force of the new unit group.
+  - `position` :: `MapPosition` — Initial position of the new unit group.
+- `LuaSurface.deconstruct_area({...})` — Place a deconstruction request.
+  - `area` :: `BoundingBox` — The area to mark for deconstruction.
+  - `force` :: `ForceID` — The force whose bots should perform the deconstruction.
+  - `item?` :: `LuaItemStack` — The deconstruction item to use if any.
+  - `player?` :: `PlayerIdentification` — The player to set the last_user to if any.
+  - `skip_fog_of_war?` :: `boolean` — If chunks covered by fog-of-war are skipped.
+  - `super_forced?` :: `boolean` — If the deconstruction is super-forced.
+- `LuaSurface.decorative_prototype_collides(position, prototype) → boolean` — Whether the given decorative prototype collides at the given position and direction.
+- `LuaSurface.delete_chunk(chunk_position)`
+- `LuaSurface.destroy_decoratives({...})` — Removes all decoratives from the given area.
+  - `area?` :: `BoundingBox`
+  - `collision_mask?` :: `CollisionLayerID | array[CollisionLayerID] | dict[CollisionLayerID → true]`
+  - `exclude_soft?` :: `boolean` — Soft decoratives can be drawn over rails.
+  - `from_layer?` :: `string`
+  - `invert?` :: `boolean` — If the filters should be inverted.
+  - `limit?` :: `uint32`
+  - `name?` :: `DecorativeID | array[DecorativeID]`
+  - `position?` :: `TilePosition`
+  - `to_layer?` :: `string`
+- `LuaSurface.destroy_global_electric_network()` — Destroys the global electric network for this surface, if it exists.
+- `LuaSurface.edit_script_area(area, id)` — Sets the given script area to the new values.
+- `LuaSurface.edit_script_position(id, position)` — Sets the given script position to the new values.
+- `LuaSurface.entity_prototype_collides(direction?, position, prototype, use_map_generation_bounding_box) → boolean` — Whether the given entity prototype collides at the given position and direction.
+- `LuaSurface.execute_lightning({...})` — Creates lightning.
+  - `name` :: `EntityID`
+  - `position` :: `MapPosition`
+- `LuaSurface.find_closest_logistic_network_by_position(force, position) → LuaLogisticNetwork` — Find the logistic network with a cell closest to a given position.
+- `LuaSurface.find_decoratives_filtered({...}) → array[DecorativeResult]` — Find decoratives of a given name in a given area.
+  - `area?` :: `BoundingBox`
+  - `collision_mask?` :: `CollisionLayerID | array[CollisionLayerID] | dict[CollisionLayerID → true]`
+  - `exclude_soft?` :: `boolean` — Soft decoratives can be drawn over rails.
+  - `from_layer?` :: `string`
+  - `invert?` :: `boolean` — If the filters should be inverted.
+  - `limit?` :: `uint32`
+  - `name?` :: `DecorativeID | array[DecorativeID]`
+  - `position?` :: `TilePosition`
+  - `to_layer?` :: `string`
+- `LuaSurface.find_enemy_units(center, force?, radius) → array[LuaEntity]` — Find enemy units (entities with type "unit") of a given force within an area.
+- `LuaSurface.find_entities(area?) → array[LuaEntity]` — Find entities in a given area.
+- `LuaSurface.find_entities_filtered(filter) → array[LuaEntity]` — Find all entities of the given type or name in the given area.
+- `LuaSurface.find_entity(entity, position) → LuaEntity` — Find an entity of the given name at the given position.
+- `LuaSurface.find_logistic_network_by_position(force, position) → LuaLogisticNetwork` — Find the logistic network that covers a given position.
+- `LuaSurface.find_logistic_networks_by_construction_area(force, position) → array[LuaLogisticNetwork]` — Finds all of the logistics networks whose construction area intersects with the given position.
+- `LuaSurface.find_nearest_enemy({...}) → LuaEntity` — Find the enemy military target ([military entity](https://wiki.factorio.com/Military_units_and_structures)) closest to the given position.
+  - `force?` :: `ForceID` — The force the result will be an enemy of.
+  - `max_distance` :: `double` — Radius of the circular search area.
+  - `position` :: `MapPosition` — Center of the search area.
+- `LuaSurface.find_nearest_enemy_entity_with_owner({...}) → LuaEntity` — Find the enemy entity-with-owner closest to the given position.
+  - `force?` :: `ForceID` — The force the result will be an enemy of.
+  - `max_distance` :: `double` — Radius of the circular search area.
+  - `position` :: `MapPosition` — Center of the search area.
+- `LuaSurface.find_non_colliding_position(center, force_to_tile_center?, name, precision, radius) → MapPosition` — Find a non-colliding position within a given radius.
+- `LuaSurface.find_non_colliding_position_in_box(force_to_tile_center?, name, precision, search_space) → MapPosition` — Find a non-colliding position within a given rectangle.
+- `LuaSurface.find_tiles_filtered(filter) → array[LuaTile]` — Find all tiles of the given name in the given area.
+- `LuaSurface.find_units({...}) → array[LuaEntity]` — Find units (entities with type "unit") of a given force and force condition within a given area.
+  - `area` :: `BoundingBox` — Box to find units within.
+  - `condition` :: `ForceCondition` — Only forces which meet the condition will be included in the search.
+  - `force` :: `ForceID` — Force performing the search.
+- `LuaSurface.force_generate_chunk_requests()` — Blocks and generates all chunks that have been requested using all available threads.
+- `LuaSurface.get_chunks() → LuaChunkIterator` — Get an iterator going over every chunk on this surface.
+- `LuaSurface.get_closest(entities, position) → LuaEntity` — Gets the closest entity in the list to this position.
+- `LuaSurface.get_connected_tiles(area?, include_diagonal?, position, tiles) → array[TilePosition]` — Gets all tiles of the given types that are connected horizontally or vertically to the given tile position including the given tile position.
+- `LuaSurface.get_default_cover_tile(force, tile) → LuaTilePrototype` — Gets the cover tile for the given force and tile on this surface if one is set.
+- `LuaSurface.get_double_hidden_tile(position) → string` — The double hidden tile name or `nil` if there isn't one for the given position.
+- `LuaSurface.get_entities_with_force(chunk_position, force) → array[LuaEntity]` — Returns all the military targets (entities with force) on this chunk for the given force.
+- `LuaSurface.get_hidden_tile(position) → string` — The hidden tile name.
+- `LuaSurface.get_map_exchange_string() → string` — Gets the map exchange string for the current map generation settings of this surface.
+- `LuaSurface.get_pollution(position) → double` — Get the pollution for a given position.
+- `LuaSurface.get_property(property) → double` — Gets the value of surface property on this surface.
+- `LuaSurface.get_random_chunk() → ChunkPosition` — Gets a random generated chunk position or 0,0 if no chunks have been generated on this surface.
+- `LuaSurface.get_resource_counts() → dict[string → uint32]` — Gets the resource amount of all resources on this surface
+- `LuaSurface.get_script_area(key?) → ScriptArea` — Gets the first script area by name or id.
+- `LuaSurface.get_script_areas(name?) → array[ScriptArea]` — Gets the script areas that match the given name or if no name is given all areas are returned.
+- `LuaSurface.get_script_position(key?) → ScriptPosition` — Gets the first script position by name or id.
+- `LuaSurface.get_script_positions(name?) → array[ScriptPosition]` — Gets the script positions that match the given name or if no name is given all positions are returned.
+- `LuaSurface.get_segmented_units() → array[LuaSegmentedUnit]` — Get all segmented units that exist on the surface.
+- `LuaSurface.get_starting_area_radius() → double` — Gets the starting area radius of this surface.
+- `LuaSurface.get_territories() → array[LuaTerritory]` — Get all territories on the surface.
+- `LuaSurface.get_territory_for_chunk(chunk_position) → LuaTerritory` — Get the territory that the given chunk is assigned to.
+- `LuaSurface.get_tile(x, y) → LuaTile` — Get the tile at a given position.
+- `LuaSurface.get_total_pollution() → double` — Gets the total amount of pollution on the surface by iterating over all the chunks containing pollution.
+- `LuaSurface.is_chunk_generated(chunk_position) → boolean` — Is a given chunk generated?
+- `LuaSurface.play_sound(sound_specification)` — Play a sound for every player on this surface.
+- `LuaSurface.pollute(amount, prototype?, source)` — Spawn pollution at the given position.
+- `LuaSurface.print(message, print_settings?)` — Print text to the chat console of all players on this surface.
+- `LuaSurface.regenerate_decorative(chunks?, decoratives?)` — Regenerate autoplacement of some decoratives on this surface.
+- `LuaSurface.regenerate_entity(chunks?, entities?)` — Regenerate autoplacement of some entities on this surface.
+- `LuaSurface.remove_script_area(id) → boolean` — Removes the given script area.
+- `LuaSurface.remove_script_position(id) → boolean` — Removes the given script position.
+- `LuaSurface.request_path({...}) → uint32` — Generates a path with the specified constraints (as an array of [PathfinderWaypoints](runtime:PathfinderWaypoint)) using the unit pathfinding algorithm.
+  - `bounding_box` :: `BoundingBox` — The dimensions of the object that's supposed to travel the path.
+  - `can_open_gates?` :: `boolean` — Whether the path request can open gates.
+  - `collision_mask` :: `CollisionMask` — The collision mask the `bounding_box` collides with.
+  - `entity_to_ignore?` :: `LuaEntity` — Makes the pathfinder ignore collisions with this entity if it is given.
+  - `force` :: `ForceID` — The force for which to generate the path, determining which gates can be opened for example.
+  - `goal` :: `MapPosition` — The position to find a path to.
+  - `max_attack_distance?` :: `double` — Defines the maximum allowed distance between the last traversable path waypoint and an obstacle entity to be destroyed.
+  - `max_gap_size?` :: `int32` — Defines the maximum allowed distance between path waypoints.
+  - `path_resolution_modifier?` :: `int32` — Defines how coarse the pathfinder's grid is, where smaller values mean a coarser grid.
+  - `pathfind_flags?` :: `PathfinderFlags` — Flags that affect pathfinder behavior.
+  - `radius?` :: `double` — How close the pathfinder needs to get to its `goal` (in tiles).
+  - `start` :: `MapPosition` — The position from which to start pathfinding.
+- `LuaSurface.request_to_generate_chunks(position, radius?)` — Request that the game's map generator generate chunks at the given position for the given radius on this surface.
+- `LuaSurface.set_chunk_generated_status(chunk_position, status)` — Set generated status of a chunk.
+- `LuaSurface.set_default_cover_tile(force, from_tile, to_tile)` — Sets the cover tile for the given force and tile on this surface.
+- `LuaSurface.set_double_hidden_tile(position, tile?)` — Set double hidden tile for the specified position.
+- `LuaSurface.set_hidden_tile(position, tile?)` — Set the hidden tile for the specified position.
+- `LuaSurface.set_multi_command({...}) → uint32` — Give a command to multiple units.
+  - `command` :: `Command`
+  - `force?` :: `ForceID` — Force of the units this command is to be given to.
+  - `unit_count` :: `uint32` — Number of units to give the command to.
+  - `unit_search_distance?` :: `uint32` — Radius to search for units.
+- `LuaSurface.set_pollution(amount, position)` — Set the pollution for a given position.
+- `LuaSurface.set_property(property, value)` — Sets the value of surface property on this surface.
+- `LuaSurface.set_territory_for_chunks(chunk_positions, territory?)` — Removes the given chunks from their current territories and adds them to the given territory if provided.
+- `LuaSurface.set_tiles(correct_tiles?, player?, raise_event?, remove_colliding_decoratives?, remove_colliding_entities?, tiles, undo_index?)` — Set tiles at specified locations.
+- `LuaSurface.spill_inventory({...}) → array[LuaEntity]` — Spill inventory on the ground centered at a given location.
+  - `allow_belts?` :: `boolean` — Whether items can be spilled onto belts.
+  - `drop_full_stack?` :: `boolean` — If item on ground should be made out of an entire provided stack.
+  - `enable_looted?` :: `boolean` — When true, each created item will be flagged with the [LuaEntity::to_be_looted](runtime:LuaEntity::to_be_looted) flag.
+  - `force?` :: `ForceID` — When provided (and not `nil`) the items will be marked for deconstruction by this force.
+  - `inventory` :: `LuaInventory` — Inventory to spill
+  - `max_radius?` :: `double` — Max radius from the specified `position` to spill items.
+  - `position` :: `MapPosition` — Center of the spillage
+  - `use_start_position_on_failure?` :: `boolean` — Allow spilling items at `position` if no non-colliding position is found.
+- `LuaSurface.spill_item_stack({...}) → array[LuaEntity]` — Spill items on the ground centered at a given location.
+  - `allow_belts?` :: `boolean` — Whether items can be spilled onto belts.
+  - `drop_full_stack?` :: `boolean` — If item on ground should be made out of an entire provided stack.
+  - `enable_looted?` :: `boolean` — When true, each created item will be flagged with the [LuaEntity::to_be_looted](runtime:LuaEntity::to_be_looted) flag.
+  - `force?` :: `ForceID` — When provided (and not `nil`) the items will be marked for deconstruction by this force.
+  - `max_radius?` :: `double` — Max radius from the specified `position` to spill items.
+  - `position` :: `MapPosition` — Center of the spillage
+  - `stack` :: `ItemStackIdentification` — Stack of items to spill
+  - `use_start_position_on_failure?` :: `boolean` — Allow spilling items at `position` if no non-colliding position is found.
+- `LuaSurface.upgrade_area({...})` — Place an upgrade request.
+  - `area` :: `BoundingBox` — The area to mark for upgrade.
+  - `force` :: `ForceID` — The force whose bots should perform the upgrade.
+  - `item` :: `LuaItemStack` — The upgrade item to use.
+  - `player?` :: `PlayerIdentification` — The player to set the last_user to if any.
+  - `skip_fog_of_war?` :: `boolean` — If chunks covered by fog-of-war are skipped.
+
+## Events
+
+### on_player_changed_position
+
+Called when the tile position a player is located at changes.
+
+Fields:
+- `name` :: `defines.events` — Identifier of the event
+- `player_index` :: `uint32` — The player.
+- `tick` :: `uint32` — Tick the event was generated.
+
+### on_player_created
+
+Called after the player was created.
+
+Fields:
+- `name` :: `defines.events` — Identifier of the event
+- `player_index` :: `uint32`
+- `tick` :: `uint32` — Tick the event was generated.
+
+### on_player_died
+
+Called after a player dies.
+
+Fields:
+- `cause?` :: `LuaEntity`
+- `name` :: `defines.events` — Identifier of the event
+- `player_index` :: `uint32`
+- `tick` :: `uint32` — Tick the event was generated.
+
+### on_player_joined_game
+
+Called after a player joins the game.
+
+Fields:
+- `name` :: `defines.events` — Identifier of the event
+- `player_index` :: `uint32`
+- `tick` :: `uint32` — Tick the event was generated.
+
+### on_player_left_game
+
+Called after a player leaves the game.
+
+Fields:
+- `name` :: `defines.events` — Identifier of the event
+- `player_index` :: `uint32`
+- `reason` :: `defines.disconnect_reason`
+- `tick` :: `uint32` — Tick the event was generated.
+
+### on_player_respawned
+
+Called after a player respawns.
+
+Fields:
+- `name` :: `defines.events` — Identifier of the event
+- `player_index` :: `uint32`
+- `player_port?` :: `LuaEntity` — The player port used to respawn if one was used.
+- `tick` :: `uint32` — Tick the event was generated.
+
+### on_udp_packet_received
+
+Called when new packets are processed by [LuaHelpers::recv_udp](runtime:LuaHelpers::recv_udp).
+
+Fields:
+- `name` :: `defines.events` — Identifier of the event
+- `payload` :: `string` — The packet data
+- `player_index` :: `uint32` — The player index whose instance received this packet, or 0 if received on the server
+- `source_port` :: `uint16` — The source port the packet was received from
+- `tick` :: `uint32` — Tick the event was generated.
+
+## Defines
+
+### defines.events
+
+See the [events page](runtime:events) for more info on what events contain and when they get raised.
+
+- `defines.events.on_achievement_gained`
+- `defines.events.on_ai_command_completed`
+- `defines.events.on_area_cloned`
+- `defines.events.on_biter_base_built`
+- `defines.events.on_brush_cloned`
+- `defines.events.on_build_base_arrived`
+- `defines.events.on_built_entity`
+- `defines.events.on_cancelled_deconstruction`
+- `defines.events.on_cancelled_upgrade`
+- `defines.events.on_cargo_pod_delivered_cargo`
+- `defines.events.on_cargo_pod_finished_ascending`
+- `defines.events.on_cargo_pod_finished_descending`
+- `defines.events.on_cargo_pod_started_ascending`
+- `defines.events.on_character_corpse_expired`
+- `defines.events.on_chart_tag_added`
+- `defines.events.on_chart_tag_modified`
+- `defines.events.on_chart_tag_removed`
+- `defines.events.on_chunk_charted`
+- `defines.events.on_chunk_deleted`
+- `defines.events.on_chunk_generated`
+- `defines.events.on_combat_robot_expired`
+- `defines.events.on_console_chat`
+- `defines.events.on_console_command`
+- `defines.events.on_cutscene_cancelled`
+- `defines.events.on_cutscene_finished`
+- `defines.events.on_cutscene_started`
+- `defines.events.on_cutscene_waypoint_reached`
+- `defines.events.on_entity_cloned`
+- `defines.events.on_entity_color_changed`
+- `defines.events.on_entity_damaged`
+- `defines.events.on_entity_died`
+- `defines.events.on_entity_logistic_slot_changed`
+- `defines.events.on_entity_renamed`
+- `defines.events.on_entity_settings_pasted`
+- `defines.events.on_entity_spawned`
+- `defines.events.on_equipment_inserted`
+- `defines.events.on_equipment_removed`
+- `defines.events.on_force_cease_fire_changed`
+- `defines.events.on_force_created`
+- `defines.events.on_force_friends_changed`
+- `defines.events.on_force_reset`
+- `defines.events.on_forces_merged`
+- `defines.events.on_forces_merging`
+- `defines.events.on_game_created_from_scenario`
+- `defines.events.on_gui_checked_state_changed`
+- `defines.events.on_gui_click`
+- `defines.events.on_gui_closed`
+- `defines.events.on_gui_confirmed`
+- `defines.events.on_gui_elem_changed`
+- `defines.events.on_gui_hover`
+- `defines.events.on_gui_leave`
+- `defines.events.on_gui_location_changed`
+- `defines.events.on_gui_opened`
+- `defines.events.on_gui_selected_tab_changed`
+- `defines.events.on_gui_selection_state_changed`
+- `defines.events.on_gui_switch_state_changed`
+- `defines.events.on_gui_text_changed`
+- `defines.events.on_gui_value_changed`
+- `defines.events.on_land_mine_armed`
+- `defines.events.on_lua_shortcut`
+- `defines.events.on_marked_for_deconstruction`
+- `defines.events.on_marked_for_upgrade`
+- `defines.events.on_market_item_purchased`
+- `defines.events.on_mod_item_opened`
+- `defines.events.on_multiplayer_init`
+- `defines.events.on_object_destroyed`
+- `defines.events.on_permission_group_added`
+- `defines.events.on_permission_group_deleted`
+- `defines.events.on_permission_group_edited`
+- `defines.events.on_permission_string_imported`
+- `defines.events.on_picked_up_item`
+- `defines.events.on_player_alt_reverse_selected_area`
+- `defines.events.on_player_alt_selected_area`
+- `defines.events.on_player_ammo_inventory_changed`
+- `defines.events.on_player_armor_inventory_changed`
+- `defines.events.on_player_banned`
+- `defines.events.on_player_built_tile`
+- `defines.events.on_player_cancelled_crafting`
+- `defines.events.on_player_changed_force`
+- `defines.events.on_player_changed_position`
+- `defines.events.on_player_changed_surface`
+- `defines.events.on_player_cheat_mode_disabled`
+- `defines.events.on_player_cheat_mode_enabled`
+- `defines.events.on_player_clicked_gps_tag`
+- `defines.events.on_player_configured_blueprint`
+- `defines.events.on_player_controller_changed`
+- `defines.events.on_player_crafted_item`
+- `defines.events.on_player_created`
+- `defines.events.on_player_cursor_stack_changed`
+- `defines.events.on_player_deconstructed_area`
+- `defines.events.on_player_demoted`
+- `defines.events.on_player_died`
+- `defines.events.on_player_display_density_scale_changed`
+- `defines.events.on_player_display_resolution_changed`
+- `defines.events.on_player_display_scale_changed`
+- `defines.events.on_player_driving_changed_state`
+- `defines.events.on_player_dropped_item`
+- `defines.events.on_player_dropped_item_into_entity`
+- `defines.events.on_player_fast_transferred`
+- `defines.events.on_player_flipped_entity`
+- `defines.events.on_player_flushed_fluid`
+- `defines.events.on_player_gun_inventory_changed`
+- `defines.events.on_player_input_method_changed`
+- `defines.events.on_player_joined_game`
+- `defines.events.on_player_kicked`
+- `defines.events.on_player_left_game`
+- `defines.events.on_player_locale_changed`
+- `defines.events.on_player_main_inventory_changed`
+- `defines.events.on_player_mined_entity`
+- `defines.events.on_player_mined_item`
+- `defines.events.on_player_mined_tile`
+- `defines.events.on_player_muted`
+- `defines.events.on_player_pipette`
+- `defines.events.on_player_placed_equipment`
+- `defines.events.on_player_promoted`
+- `defines.events.on_player_removed`
+- `defines.events.on_player_removed_equipment`
+- `defines.events.on_player_repaired_entity`
+- `defines.events.on_player_respawned`
+- `defines.events.on_player_reverse_selected_area`
+- `defines.events.on_player_rotated_entity`
+- `defines.events.on_player_selected_area`
+- `defines.events.on_player_set_quick_bar_slot`
+- `defines.events.on_player_setup_blueprint`
+- `defines.events.on_player_toggled_alt_mode`
+- `defines.events.on_player_toggled_map_editor`
+- `defines.events.on_player_trash_inventory_changed`
+- `defines.events.on_player_unbanned`
+- `defines.events.on_player_unmuted`
+- `defines.events.on_player_used_capsule`
+- `defines.events.on_player_used_spidertron_remote`
+- `defines.events.on_post_entity_died`
+- `defines.events.on_post_segmented_unit_died`
+- `defines.events.on_pre_build`
+- `defines.events.on_pre_chunk_deleted`
+- `defines.events.on_pre_entity_settings_pasted`
+- `defines.events.on_pre_ghost_deconstructed`
+- `defines.events.on_pre_ghost_upgraded`
+- `defines.events.on_pre_permission_group_deleted`
+- `defines.events.on_pre_permission_string_imported`
+- `defines.events.on_pre_player_crafted_item`
+- `defines.events.on_pre_player_died`
+- `defines.events.on_pre_player_left_game`
+- `defines.events.on_pre_player_mined_item`
+- `defines.events.on_pre_player_removed`
+- `defines.events.on_pre_player_toggled_map_editor`
+- `defines.events.on_pre_robot_exploded_cliff`
+- `defines.events.on_pre_scenario_finished`
+- `defines.events.on_pre_script_inventory_resized`
+- `defines.events.on_pre_surface_cleared`
+- `defines.events.on_pre_surface_deleted`
+- `defines.events.on_redo_applied`
+- `defines.events.on_research_cancelled`
+- `defines.events.on_research_finished`
+- `defines.events.on_research_moved`
+- `defines.events.on_research_queued`
+- `defines.events.on_research_reversed`
+- `defines.events.on_research_started`
+- `defines.events.on_resource_depleted`
+- `defines.events.on_robot_built_entity`
+- `defines.events.on_robot_built_tile`
+- `defines.events.on_robot_exploded_cliff`
+- `defines.events.on_robot_mined`
+- `defines.events.on_robot_mined_entity`
+- `defines.events.on_robot_mined_tile`
+- `defines.events.on_robot_pre_mined`
+- `defines.events.on_rocket_launch_ordered`
+- `defines.events.on_rocket_launched`
+- `defines.events.on_runtime_mod_setting_changed`
+- `defines.events.on_script_inventory_resized`
+- `defines.events.on_script_path_request_finished`
+- `defines.events.on_script_trigger_effect`
+- `defines.events.on_sector_scanned`
+- `defines.events.on_segment_entity_created`
+- `defines.events.on_segmented_unit_created`
+- `defines.events.on_segmented_unit_damaged`
+- `defines.events.on_segmented_unit_died`
+- `defines.events.on_selected_entity_changed`
+- `defines.events.on_singleplayer_init`
+- `defines.events.on_space_platform_built_entity`
+- `defines.events.on_space_platform_built_tile`
+- `defines.events.on_space_platform_changed_state`
+- `defines.events.on_space_platform_mined_entity`
+- `defines.events.on_space_platform_mined_item`
+- `defines.events.on_space_platform_mined_tile`
+- `defines.events.on_space_platform_pre_mined`
+- `defines.events.on_spider_command_completed`
+- `defines.events.on_string_translated`
+- `defines.events.on_surface_cleared`
+- `defines.events.on_surface_created`
+- `defines.events.on_surface_deleted`
+- `defines.events.on_surface_imported`
+- `defines.events.on_surface_renamed`
+- `defines.events.on_technology_effects_reset`
+- `defines.events.on_territory_created`
+- `defines.events.on_territory_destroyed`
+- `defines.events.on_tick`
+- `defines.events.on_tower_mined_plant`
+- `defines.events.on_tower_planted_seed`
+- `defines.events.on_tower_pre_mined_plant`
+- `defines.events.on_train_changed_state`
+- `defines.events.on_train_created`
+- `defines.events.on_train_schedule_changed`
+- `defines.events.on_trigger_created_entity`
+- `defines.events.on_trigger_fired_artillery`
+- `defines.events.on_udp_packet_received`
+- `defines.events.on_undo_applied`
+- `defines.events.on_unit_added_to_group`
+- `defines.events.on_unit_group_created`
+- `defines.events.on_unit_group_finished_gathering`
+- `defines.events.on_unit_removed_from_group`
+- `defines.events.on_worker_robot_expired`
+- `defines.events.script_raised_built`
+- `defines.events.script_raised_destroy`
+- `defines.events.script_raised_destroy_segmented_unit`
+- `defines.events.script_raised_revive`
+- `defines.events.script_raised_set_tiles`
+- `defines.events.script_raised_teleported`
+

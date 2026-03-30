@@ -43,3 +43,94 @@ return example
 ```
 
 The `softmod.go` script iterates through all `.lua` files in `softmod/factop/`, converts their path to a require string (e.g., `factop.example`), and adds `add_lib("factop.example")` to the `control.lua`. The `add_lib` function in `controlHeader.lua` then requires the file and passes the returned table to `handler.add_lib(l)`.
+
+## Registering Custom Console Commands
+
+Modules can register custom console commands using the `commands` global (`LuaCommandProcessor`). This makes functions accessible externally via RCON without needing to wrap calls in `/sc` Lua snippets.
+
+### Key rules for command registration:
+
+1. **Register in both `on_init` and `on_load`**: `on_load` runs when an existing save is loaded — this is the path used during normal softmod deployment (the server is stopped, the save zip is patched, and the server restarts). `on_init` only runs when a brand new save is created (e.g. during a `reset` command). For softmod updates, `on_load` is the critical callback. However, both should be implemented so commands work regardless of how the save was started.
+2. **Do not register in `events`**: Command registration is not event-driven. It happens during initialization only.
+3. **RCON-only by default**: Commands registered by softmod modules are operational commands, not player-facing features. Every command handler MUST guard against in-game player invocation by checking `cmd.player_index`. When `player_index` is `nil`, the command was invoked via RCON. When it is set, a player typed it in the console — reject it.
+4. **Use `rcon.print()` for output**: When a command is invoked via RCON, `game.print()` sends output to the in-game console but not back to the RCON caller. Use `rcon.print()` to return data to the external caller. The `rcon` global is only available during RCON execution, so check for it before use.
+5. **Command handler signature**: The handler receives a single table with `name` (command name), `player_index` (nil when called via RCON), and `parameter` (the string after the command name).
+6. **Avoid duplicate registration**: `commands.add_command` will error if a command with the same name is already registered. Since `on_load` is called on every save load, and `on_init` on first creation, the registration function should be idempotent or called from a shared helper.
+
+### Example: command registration pattern
+
+```lua
+local my_mod = {}
+
+--- Returns true if the command was invoked via RCON (player_index is nil).
+-- Rejects in-game player invocations with a message.
+local function rcon_only(cmd)
+    if cmd.player_index ~= nil then
+        game.players[cmd.player_index].print("This command is only available via RCON")
+        return false
+    end
+    return true
+end
+
+local function reply(msg)
+    if rcon and rcon.print then
+        rcon.print(msg)
+    else
+        game.print(msg)
+    end
+end
+
+local function register_commands()
+    commands.add_command("my-cmd", "Description here", function(cmd)
+        if not rcon_only(cmd) then return end
+        -- cmd.parameter is the string after "/my-cmd "
+        local args = {}
+        if cmd.parameter then
+            for w in cmd.parameter:gmatch("%S+") do args[#args + 1] = w end
+        end
+        reply("result: " .. args[1])
+    end)
+end
+
+my_mod.on_init = register_commands
+my_mod.on_load = register_commands
+
+return my_mod
+```
+
+External invocation via RCON (through NATS):
+```
+/tiles-fill -10,-10,10,10 concrete
+```
+
+## Tile Manipulation (factop/tiles.lua)
+
+The `tiles.lua` module provides area-based tile operations exposed as console commands. All commands take an area as `x1,y1,x2,y2` (integer tile coordinates) and an optional surface name (defaults to `nauvis`).
+
+### Available commands
+
+| Command | Usage | Description |
+|---------|-------|-------------|
+| `/tiles-fill` | `x1,y1,x2,y2 tile_name [surface]` | Fill rectangular area with a tile type |
+| `/tiles-read` | `x1,y1,x2,y2 [filter_name] [surface]` | Read tile names/positions in area. Returns compact `name:x:y,...` format |
+| `/tiles-remove` | `x1,y1,x2,y2 [filter_name] [surface]` | Restore hidden tiles in area (reverts placed tiles) |
+| `/tiles-replace` | `x1,y1,x2,y2 from_name to_name [surface]` | Replace one tile type with another |
+| `/tiles-checker` | `x1,y1,x2,y2 tile_a tile_b [surface]` | Fill area with alternating checkerboard pattern |
+
+### Examples via RCON
+
+```
+/tiles-fill -20,-20,20,20 concrete
+/tiles-read -5,-5,5,5
+/tiles-read -5,-5,5,5 concrete
+/tiles-remove -20,-20,20,20 concrete
+/tiles-replace -10,-10,10,10 grass-1 concrete
+/tiles-checker 0,0,16,16 concrete stone-path
+```
+
+### Design notes
+
+- **Small payload, large result**: Commands take a bounding box and tile name — the loop to create individual tile entries happens server-side in Lua, keeping RCON payloads minimal.
+- **`set_tiles` with `correct_tiles=true`**: Ensures tile transitions render correctly.
+- **Remove restores hidden tiles**: When Factorio places tiles like concrete over grass, the original tile is stored as a "hidden tile". The remove operation restores it. Falls back to `landfill` if no hidden tile exists.
+- **Read output format**: Uses `name:x:y` comma-separated format for compact, parseable output suitable for external tooling.

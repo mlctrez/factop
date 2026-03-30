@@ -6,9 +6,11 @@ Typed Go client for interacting with a factop server over NATS.
 
 ```
 client/
-├── client.go           # Shared Conn type (NATS + RCON-over-NATS)
-├── tiles/tiles.go      # Client for softmod/factop/tiles.lua commands
-├── entities/entities.go # Client for softmod/factop/entities.lua commands
+├── client.go              # Shared Conn type (NATS + RCON-over-NATS)
+├── tiles/tiles.go         # Client for softmod/factop/tiles.lua commands
+├── entities/entities.go   # Client for softmod/factop/entities.lua commands
+├── surface/surface.go     # Client for softmod/factop/surface.lua commands
+├── resources/resources.go # Client for softmod/factop/resources.lua commands
 └── README.md
 ```
 
@@ -21,6 +23,8 @@ corresponding `client/<name>/` Go package:
 |---|---|---|
 | `softmod/factop/tiles.lua` | `client/tiles` | `tiles.Client` |
 | `softmod/factop/entities.lua` | `client/entities` | `entities.Client` |
+| `softmod/factop/surface.lua` | `client/surface` | `surface.Client` |
+| `softmod/factop/resources.lua` | `client/resources` | `resources.Client` |
 
 When creating a new softmod command module:
 
@@ -60,6 +64,12 @@ wire format into typed Go structs.
 |---|---|---|
 | tiles-read | `name:x:y,...` | `concrete:0:0,grass-1:1:0` |
 | entities-find | `name:x:y:unit_number,...` | `iron-chest:5.5:10.5:42` |
+| surface-list | `name:index,...` | `nauvis:1,vulcanus:2` |
+| surface-info | `key:value,...` | `name:nauvis,always_day:false,...` |
+| resources-count | `name:count,...` | `iron-ore:12345,copper-ore:6789` |
+| resources-find | `name:x:y:amount,...` | `iron-ore:10.5:20.5:1500` |
+| pollution-get | `float` | `123.45` |
+| pollution-total | `float` | `5678.90` |
 
 ## Filter Placeholders
 

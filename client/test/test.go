@@ -53,6 +53,9 @@ func main() {
 	gc := game.New(conn)
 	pc := player.New(conn)
 
+	// Remove all disconnected players except mlctrez
+	removeDisconnectedPlayers(gc, "mlctrez")
+
 	// Clear the full area and lay floor
 	clearArea := tile.Area{
 		X1: -clearSize, Y1: -clearSize,
@@ -97,6 +100,30 @@ func main() {
 		placeWall(ec, p[0], p[1], &placed)
 	}
 	fmt.Printf("done: %d total walls placed\n", placed)
+}
+
+// removeDisconnectedPlayers removes all players from the save except the
+// given keep name. Only disconnected players are removed.
+func removeDisconnectedPlayers(gc *game.Client, keep string) {
+	all, err := gc.PlayersAll()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "list all players: %v\n", err)
+		return
+	}
+	for _, p := range all {
+		if p.Name == keep {
+			continue
+		}
+		if !p.Connected {
+			fmt.Printf("  removing disconnected player %s (index %d)...\n", p.Name, p.Index)
+			result, rErr := gc.Remove(p.Name)
+			if rErr != nil {
+				fmt.Fprintf(os.Stderr, "  remove %s: %v\n", p.Name, rErr)
+			} else {
+				fmt.Printf("  %s\n", result)
+			}
+		}
+	}
 }
 
 // respawnPlayers checks all connected players and creates characters for

@@ -32,6 +32,19 @@ local function register_commands()
         c.reply(table.concat(parts, ","))
     end)
 
+    -- /game-players-all
+    -- Returns all players (connected and disconnected).
+    -- Wire format: name:index:connected,...
+    commands.add_command("game-players-all", "List all players. Usage: /game-players-all", function(cmd)
+        if not c.rcon_only(cmd) then return end
+        local parts = {}
+        for _, player in pairs(game.players) do
+            parts[#parts + 1] = string.format("%s:%d:%s",
+                player.name, player.index, tostring(player.connected))
+        end
+        c.reply(table.concat(parts, ","))
+    end)
+
     -- /game-kick <player> [reason]
     commands.add_command("game-kick", "Kick a player. Usage: /game-kick player [reason]", function(cmd)
         if not c.rcon_only(cmd) then return end

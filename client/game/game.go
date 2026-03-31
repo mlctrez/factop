@@ -19,6 +19,13 @@ type Player struct {
 	HasCharacter bool    `json:"has_character"`
 }
 
+// PlayerEntry represents any player (connected or disconnected) from game-players-all.
+type PlayerEntry struct {
+	Name      string `json:"name"`
+	Index     int    `json:"index"`
+	Connected bool   `json:"connected"`
+}
+
 // Client provides typed methods for each game-* RCON command.
 type Client struct {
 	conn *client.Conn
@@ -36,6 +43,15 @@ func (c *Client) Players() ([]Player, error) {
 		return nil, err
 	}
 	return ParsePlayers(raw)
+}
+
+// PlayersAll returns all players (connected and disconnected).
+func (c *Client) PlayersAll() ([]PlayerEntry, error) {
+	raw, err := c.conn.Rcon("/game-players-all")
+	if err != nil {
+		return nil, err
+	}
+	return ParsePlayersAll(raw)
 }
 
 // Kick disconnects a player from the server.
@@ -85,6 +101,33 @@ func ParsePlayers(s string) ([]Player, error) {
 			X:            x,
 			Y:            y,
 			HasCharacter: parts[4] == "true",
+		})
+	}
+	return result, nil
+}
+
+// ParsePlayersAll converts the game-players-all wire format into a slice of PlayerEntry.
+// Wire format: name:index:connected,...
+func ParsePlayersAll(s string) ([]PlayerEntry, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil, nil
+	}
+	entries := strings.Split(s, ",")
+	result := make([]PlayerEntry, 0, len(entries))
+	for _, entry := range entries {
+		parts := strings.SplitN(entry, ":", 3)
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("invalid player-all entry %q: expected name:index:connected", entry)
+		}
+		idx, err := strconv.Atoi(parts[1])
+		if err != nil {
+			return nil, fmt.Errorf("invalid index in %q: %w", entry, err)
+		}
+		result = append(result, PlayerEntry{
+			Name:      parts[0],
+			Index:     idx,
+			Connected: parts[2] == "true",
 		})
 	}
 	return result, nil

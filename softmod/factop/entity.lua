@@ -10,10 +10,10 @@ local c = require("factop.common")
 
 local function register_commands()
 
-    commands.add_command("entities-create", "Create entity. Usage: /entities-create x,y name [force] [direction] [surface]", function(cmd)
+    commands.add_command("entity-create", "Create entity. Usage: /entity-create x,y name [force] [direction] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 2 then c.reply("Usage: /entities-create x,y name [force] [direction] [surface]") return end
+        if #args < 2 then c.reply("Usage: /entity-create x,y name [force] [direction] [surface]") return end
         local pos = c.parse_position(args[1])
         if not pos then c.reply("Invalid position. Use: x,y") return end
         local name = args[2]
@@ -36,10 +36,10 @@ local function register_commands()
         end
     end)
 
-    commands.add_command("entities-find", "Find entities. Usage: /entities-find x1,y1,x2,y2 [name] [type] [force] [limit] [surface]", function(cmd)
+    commands.add_command("entity-find", "Find entities. Usage: /entity-find x1,y1,x2,y2 [name] [type] [force] [limit] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 1 then c.reply("Usage: /entities-find x1,y1,x2,y2 [name] [type] [force] [limit] [surface]") return end
+        if #args < 1 then c.reply("Usage: /entity-find x1,y1,x2,y2 [name] [type] [force] [limit] [surface]") return end
         local area = c.parse_area(args[1])
         if not area then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
 
@@ -62,10 +62,10 @@ local function register_commands()
         c.reply(table.concat(parts, ","))
     end)
 
-    commands.add_command("entities-count", "Count entities. Usage: /entities-count x1,y1,x2,y2 [name] [type] [force] [surface]", function(cmd)
+    commands.add_command("entity-count", "Count entities. Usage: /entity-count x1,y1,x2,y2 [name] [type] [force] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 1 then c.reply("Usage: /entities-count x1,y1,x2,y2 [name] [type] [force] [surface]") return end
+        if #args < 1 then c.reply("Usage: /entity-count x1,y1,x2,y2 [name] [type] [force] [surface]") return end
         local area = c.parse_area(args[1])
         if not area then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
 
@@ -80,10 +80,10 @@ local function register_commands()
         c.reply(tostring(surface.count_entities_filtered(filter)))
     end)
 
-    commands.add_command("entities-destroy", "Destroy entities. Usage: /entities-destroy x1,y1,x2,y2 [name] [type] [force] [limit] [surface]", function(cmd)
+    commands.add_command("entity-destroy", "Destroy entities. Usage: /entity-destroy x1,y1,x2,y2 [name] [type] [force] [limit] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 1 then c.reply("Usage: /entities-destroy x1,y1,x2,y2 [name] [type] [force] [limit] [surface]") return end
+        if #args < 1 then c.reply("Usage: /entity-destroy x1,y1,x2,y2 [name] [type] [force] [limit] [surface]") return end
         local area = c.parse_area(args[1])
         if not area then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
 

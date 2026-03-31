@@ -18,6 +18,7 @@ func TestBuildControlLuaExcludesCommon(t *testing.T) {
 
 	expected := []string{
 		`add_lib("factop.entity")`,
+		`add_lib("factop.game")`,
 		`add_lib("factop.goal")`,
 		`add_lib("factop.player")`,
 		`add_lib("factop.resource")`,

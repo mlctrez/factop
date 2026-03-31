@@ -1,5 +1,5 @@
-// Package tiles provides a typed Go client for the tile manipulation commands
-// registered by softmod/factop/tiles.lua.
+// Package tile provides a typed Go client for the tile manipulation commands
+// registered by softmod/factop/tile.lua.
 package tile
 
 import (
@@ -30,7 +30,7 @@ func (a Area) String() string {
 	return fmt.Sprintf("%d,%d,%d,%d", a.X1, a.Y1, a.X2, a.Y2)
 }
 
-// Client provides typed methods for each tiles-* RCON command.
+// Client provides typed methods for each tile-* RCON command.
 type Client struct {
 	conn *client.Conn
 }
@@ -41,9 +41,9 @@ func New(conn *client.Conn) *Client {
 }
 
 // Fill places a single tile type across the entire area.
-// Corresponds to: /tiles-fill x1,y1,x2,y2 tileName [surface]
+// Corresponds to: /tile-fill x1,y1,x2,y2 tileName [surface]
 func (c *Client) Fill(area Area, tileName string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tiles-fill %s %s", area, tileName)
+	cmd := fmt.Sprintf("/tile-fill %s %s", area, tileName)
 	if surface != "" {
 		cmd += " " + surface
 	}
@@ -51,9 +51,9 @@ func (c *Client) Fill(area Area, tileName string, surface string) (string, error
 }
 
 // Read returns the tiles in the given area, optionally filtered by name.
-// Corresponds to: /tiles-read x1,y1,x2,y2 [filterName] [surface]
+// Corresponds to: /tile-read x1,y1,x2,y2 [filterName] [surface]
 func (c *Client) Read(area Area, filterName string, surface string) ([]Tile, error) {
-	cmd := fmt.Sprintf("/tiles-read %s", area)
+	cmd := fmt.Sprintf("/tile-read %s", area)
 	if filterName != "" {
 		cmd += " " + filterName
 	}
@@ -72,9 +72,9 @@ func (c *Client) Read(area Area, filterName string, surface string) ([]Tile, err
 }
 
 // Remove restores hidden tiles in the area, optionally filtered by name.
-// Corresponds to: /tiles-remove x1,y1,x2,y2 [filterName] [surface]
+// Corresponds to: /tile-remove x1,y1,x2,y2 [filterName] [surface]
 func (c *Client) Remove(area Area, filterName string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tiles-remove %s", area)
+	cmd := fmt.Sprintf("/tile-remove %s", area)
 	if filterName != "" {
 		cmd += " " + filterName
 	}
@@ -88,9 +88,9 @@ func (c *Client) Remove(area Area, filterName string, surface string) (string, e
 }
 
 // Replace swaps one tile type for another across the area.
-// Corresponds to: /tiles-replace x1,y1,x2,y2 fromName toName [surface]
+// Corresponds to: /tile-replace x1,y1,x2,y2 fromName toName [surface]
 func (c *Client) Replace(area Area, fromName, toName string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tiles-replace %s %s %s", area, fromName, toName)
+	cmd := fmt.Sprintf("/tile-replace %s %s %s", area, fromName, toName)
 	if surface != "" {
 		cmd += " " + surface
 	}
@@ -98,16 +98,16 @@ func (c *Client) Replace(area Area, fromName, toName string, surface string) (st
 }
 
 // Checkerboard fills the area with an alternating pattern of two tile types.
-// Corresponds to: /tiles-checker x1,y1,x2,y2 tileA tileB [surface]
+// Corresponds to: /tile-checker x1,y1,x2,y2 tileA tileB [surface]
 func (c *Client) Checkerboard(area Area, tileA, tileB string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tiles-checker %s %s %s", area, tileA, tileB)
+	cmd := fmt.Sprintf("/tile-checker %s %s %s", area, tileA, tileB)
 	if surface != "" {
 		cmd += " " + surface
 	}
 	return c.conn.Rcon(cmd)
 }
 
-// Parse converts the compact tiles-read wire format into a slice of Tile.
+// Parse converts the compact tile-read wire format into a slice of Tile.
 // The wire format is: name:x:y,name:x:y,...
 // An empty string returns nil, nil.
 func Parse(s string) ([]Tile, error) {

@@ -98,10 +98,10 @@ end
 
 local function register_commands()
 
-    commands.add_command("tiles-fill", "Fill area with tiles. Usage: /tiles-fill x1,y1,x2,y2 tile_name [surface]", function(cmd)
+    commands.add_command("tile-fill", "Fill area with tiles. Usage: /tile-fill x1,y1,x2,y2 tile_name [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 2 then c.reply("Usage: /tiles-fill x1,y1,x2,y2 tile_name [surface]") return end
+        if #args < 2 then c.reply("Usage: /tile-fill x1,y1,x2,y2 tile_name [surface]") return end
         local lt, rb = c.parse_tile_area(args[1])
         if not lt then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
         local surface = c.get_surface(args[3])
@@ -109,10 +109,10 @@ local function register_commands()
         c.reply("Placed " .. fill_area(surface, lt, rb, args[2], false) .. " tiles")
     end)
 
-    commands.add_command("tiles-read", "Read tiles in area. Usage: /tiles-read x1,y1,x2,y2 [filter_name] [surface]", function(cmd)
+    commands.add_command("tile-read", "Read tiles in area. Usage: /tile-read x1,y1,x2,y2 [filter_name] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 1 then c.reply("Usage: /tiles-read x1,y1,x2,y2 [filter_name] [surface]") return end
+        if #args < 1 then c.reply("Usage: /tile-read x1,y1,x2,y2 [filter_name] [surface]") return end
         local lt, rb = c.parse_tile_area(args[1])
         if not lt then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
         local filter = args[2]
@@ -127,10 +127,10 @@ local function register_commands()
         c.reply(table.concat(parts, ","))
     end)
 
-    commands.add_command("tiles-remove", "Remove tiles in area (restore hidden). Usage: /tiles-remove x1,y1,x2,y2 [filter_name] [surface]", function(cmd)
+    commands.add_command("tile-remove", "Remove tiles in area (restore hidden). Usage: /tile-remove x1,y1,x2,y2 [filter_name] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 1 then c.reply("Usage: /tiles-remove x1,y1,x2,y2 [filter_name] [surface]") return end
+        if #args < 1 then c.reply("Usage: /tile-remove x1,y1,x2,y2 [filter_name] [surface]") return end
         local lt, rb = c.parse_tile_area(args[1])
         if not lt then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
         local filter = args[2]
@@ -140,10 +140,10 @@ local function register_commands()
         c.reply("Removed " .. remove_area(surface, lt, rb, filter) .. " tiles")
     end)
 
-    commands.add_command("tiles-replace", "Replace tiles in area. Usage: /tiles-replace x1,y1,x2,y2 from_name to_name [surface]", function(cmd)
+    commands.add_command("tile-replace", "Replace tiles in area. Usage: /tile-replace x1,y1,x2,y2 from_name to_name [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 3 then c.reply("Usage: /tiles-replace x1,y1,x2,y2 from_name to_name [surface]") return end
+        if #args < 3 then c.reply("Usage: /tile-replace x1,y1,x2,y2 from_name to_name [surface]") return end
         local lt, rb = c.parse_tile_area(args[1])
         if not lt then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
         local surface = c.get_surface(args[4])
@@ -151,10 +151,10 @@ local function register_commands()
         c.reply("Replaced " .. replace_area(surface, lt, rb, args[2], args[3]) .. " tiles")
     end)
 
-    commands.add_command("tiles-checker", "Checkerboard pattern. Usage: /tiles-checker x1,y1,x2,y2 tile_a tile_b [surface]", function(cmd)
+    commands.add_command("tile-checker", "Checkerboard pattern. Usage: /tile-checker x1,y1,x2,y2 tile_a tile_b [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 3 then c.reply("Usage: /tiles-checker x1,y1,x2,y2 tile_a tile_b [surface]") return end
+        if #args < 3 then c.reply("Usage: /tile-checker x1,y1,x2,y2 tile_a tile_b [surface]") return end
         local lt, rb = c.parse_tile_area(args[1])
         if not lt then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
         local surface = c.get_surface(args[4])

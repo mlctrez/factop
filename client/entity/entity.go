@@ -1,5 +1,5 @@
-// Package entities provides a typed Go client for the entity manipulation
-// commands registered by softmod/factop/entities.lua.
+// Package entity provides a typed Go client for the entity manipulation
+// commands registered by softmod/factop/entity.lua.
 package entity
 
 import (
@@ -50,7 +50,7 @@ type FindOptions struct {
 	Surface string
 }
 
-// Client provides typed methods for each entities-* RCON command.
+// Client provides typed methods for each entity-* RCON command.
 type Client struct {
 	conn *client.Conn
 }
@@ -64,7 +64,7 @@ func New(conn *client.Conn) *Client {
 // Direction uses Factorio direction names: "north", "south", "east", "west", etc.
 // Pass empty strings for force/direction/surface to use defaults.
 func (c *Client) Create(pos Position, name, force, direction, surface string) (string, error) {
-	cmd := fmt.Sprintf("/entities-create %s %s", pos, name)
+	cmd := fmt.Sprintf("/entity-create %s %s", pos, name)
 	if force != "" {
 		cmd += " " + force
 	}
@@ -97,7 +97,7 @@ func filterArg(s string) string {
 
 // Find returns entities matching the filter in the given area.
 func (c *Client) Find(area Area, opts FindOptions) ([]Entity, error) {
-	cmd := fmt.Sprintf("/entities-find %s %s %s %s",
+	cmd := fmt.Sprintf("/entity-find %s %s %s %s",
 		area, filterArg(opts.Name), filterArg(opts.Type), filterArg(opts.Force))
 	if opts.Limit > 0 {
 		cmd += " " + strconv.Itoa(opts.Limit)
@@ -116,7 +116,7 @@ func (c *Client) Find(area Area, opts FindOptions) ([]Entity, error) {
 
 // Count returns the number of entities matching the filter in the area.
 func (c *Client) Count(area Area, opts FindOptions) (int, error) {
-	cmd := fmt.Sprintf("/entities-count %s %s %s %s",
+	cmd := fmt.Sprintf("/entity-count %s %s %s %s",
 		area, filterArg(opts.Name), filterArg(opts.Type), filterArg(opts.Force))
 	if opts.Surface != "" {
 		cmd += " " + opts.Surface
@@ -130,7 +130,7 @@ func (c *Client) Count(area Area, opts FindOptions) (int, error) {
 
 // Destroy removes entities matching the filter in the area.
 func (c *Client) Destroy(area Area, opts FindOptions) (string, error) {
-	cmd := fmt.Sprintf("/entities-destroy %s %s %s %s",
+	cmd := fmt.Sprintf("/entity-destroy %s %s %s %s",
 		area, filterArg(opts.Name), filterArg(opts.Type), filterArg(opts.Force))
 	if opts.Limit > 0 {
 		cmd += " " + strconv.Itoa(opts.Limit)
@@ -143,7 +143,7 @@ func (c *Client) Destroy(area Area, opts FindOptions) (string, error) {
 	return c.conn.Rcon(cmd)
 }
 
-// Parse converts the compact entities-find wire format into a slice of Entity.
+// Parse converts the compact entity-find wire format into a slice of Entity.
 // Wire format: name:x:y:unit_number,name:x:y:unit_number,...
 func Parse(s string) ([]Entity, error) {
 	s = strings.TrimSpace(s)

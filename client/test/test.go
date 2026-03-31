@@ -8,16 +8,18 @@ import (
 
 	"github.com/mlctrez/factop/client"
 	"github.com/mlctrez/factop/client/entity"
+	"github.com/mlctrez/factop/client/game"
 	"github.com/mlctrez/factop/client/player"
 	"github.com/mlctrez/factop/client/prototype"
 	"github.com/mlctrez/factop/client/tile"
 )
 
 const (
-	wallName = "stone-wall"
+	wallName  = "stone-wall"
 	floorTile = "lab-dark-1"
-	boxSize  = 50 // inner box dimension
-	mazeExt  = 10 // maze extends this far outside the box
+	boxSize   = 10  // inner box dimension
+	mazeExt   = 50  // maze extends this far outside the box
+	clearSize = 120 // area to clear entities and lay floor tiles
 )
 
 // origin centers the structure at 0,0
@@ -48,25 +50,24 @@ func main() {
 
 	tc := tile.New(conn)
 	ec := entity.New(conn)
+	gc := game.New(conn)
 	pc := player.New(conn)
 
-	// Clear the full area first (box + maze border)
-	fullArea := tile.Area{
-		X1: originX - mazeExt - 1,
-		Y1: originY - mazeExt - 1,
-		X2: originX + boxSize + mazeExt + 1,
-		Y2: originY + boxSize + mazeExt + 1,
+	// Clear the full area and lay floor
+	clearArea := tile.Area{
+		X1: -clearSize, Y1: -clearSize,
+		X2: clearSize, Y2: clearSize,
 	}
 	fmt.Println("clearing area and laying floor...")
 	destroyArea := entity.Area{
-		X1: float64(fullArea.X1), Y1: float64(fullArea.Y1),
-		X2: float64(fullArea.X2), Y2: float64(fullArea.Y2),
+		X1: float64(clearArea.X1), Y1: float64(clearArea.Y1),
+		X2: float64(clearArea.X2), Y2: float64(clearArea.Y2),
 	}
 	clearEntities(ec, destroyArea)
-	_, _ = tc.Fill(fullArea, floorTile, "")
+	_, _ = tc.Fill(clearArea, floorTile, "")
 
 	// Respawn any players that lost their character during clearing
-	respawnPlayers(pc)
+	respawnPlayers(gc, pc)
 
 	// Build the 50x50 box walls
 	fmt.Println("building box walls...")
@@ -100,8 +101,8 @@ func main() {
 
 // respawnPlayers checks all connected players and creates characters for
 // any that are missing one.
-func respawnPlayers(pc *player.Client) {
-	list, err := pc.List()
+func respawnPlayers(gc *game.Client, pc *player.Client) {
+	list, err := gc.Players()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "list players: %v\n", err)
 		return

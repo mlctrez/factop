@@ -1,5 +1,5 @@
-// Package resources provides a typed Go client for the resource and pollution
-// commands registered by softmod/factop/resources.lua.
+// Package resource provides a typed Go client for the resource and pollution
+// commands registered by softmod/factop/resource.lua.
 package resource
 
 import (
@@ -36,7 +36,7 @@ func (a Area) String() string {
 	return fmt.Sprintf("%g,%g,%g,%g", a.X1, a.Y1, a.X2, a.Y2)
 }
 
-// Client provides typed methods for each resources-* and pollution-* RCON command.
+// Client provides typed methods for each resource-* and pollution-* RCON command.
 type Client struct {
 	conn *client.Conn
 }
@@ -48,7 +48,7 @@ func New(conn *client.Conn) *Client {
 
 // Count returns total resource counts for the surface.
 func (c *Client) Count(surface string) ([]ResourceCount, error) {
-	cmd := "/resources-count"
+	cmd := "/resource-count"
 	if surface != "" {
 		cmd += " " + surface
 	}
@@ -69,7 +69,7 @@ func (c *Client) Find(area Area, name string, limit int, surface string) ([]Reso
 	if limit > 0 {
 		limitArg = strconv.Itoa(limit)
 	}
-	cmd := fmt.Sprintf("/resources-find %s %s %s", area, nameArg, limitArg)
+	cmd := fmt.Sprintf("/resource-find %s %s %s", area, nameArg, limitArg)
 	if surface != "" {
 		cmd += " " + surface
 	}
@@ -82,7 +82,7 @@ func (c *Client) Find(area Area, name string, limit int, surface string) ([]Reso
 
 // SetAmount sets the resource amount at the given position.
 func (c *Client) SetAmount(x, y float64, amount uint32, surface string) (string, error) {
-	cmd := fmt.Sprintf("/resources-set %g,%g %d", x, y, amount)
+	cmd := fmt.Sprintf("/resource-set %g,%g %d", x, y, amount)
 	if surface != "" {
 		cmd += " " + surface
 	}
@@ -124,7 +124,7 @@ func (c *Client) TotalPollution(surface string) (float64, error) {
 	return strconv.ParseFloat(strings.TrimSpace(raw), 64)
 }
 
-// ParseCounts parses the resources-count wire format: name:count,name:count,...
+// ParseCounts parses the resource-count wire format: name:count,name:count,...
 func ParseCounts(s string) ([]ResourceCount, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
@@ -146,7 +146,7 @@ func ParseCounts(s string) ([]ResourceCount, error) {
 	return result, nil
 }
 
-// ParseResources parses the resources-find wire format: name:x:y:amount,...
+// ParseResources parses the resource-find wire format: name:x:y:amount,...
 func ParseResources(s string) ([]Resource, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {

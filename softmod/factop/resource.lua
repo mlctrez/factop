@@ -9,7 +9,7 @@ local c = require("factop.common")
 
 local function register_commands()
 
-    commands.add_command("resources-count", "Count all resources on surface. Usage: /resources-count [surface]", function(cmd)
+    commands.add_command("resource-count", "Count all resources on surface. Usage: /resource-count [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
         local surface = c.get_surface(args[1])
@@ -22,10 +22,10 @@ local function register_commands()
         c.reply(table.concat(parts, ","))
     end)
 
-    commands.add_command("resources-find", "Find resources in area. Usage: /resources-find x1,y1,x2,y2 [name] [limit] [surface]", function(cmd)
+    commands.add_command("resource-find", "Find resources in area. Usage: /resource-find x1,y1,x2,y2 [name] [limit] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 1 then c.reply("Usage: /resources-find x1,y1,x2,y2 [name] [limit] [surface]") return end
+        if #args < 1 then c.reply("Usage: /resource-find x1,y1,x2,y2 [name] [limit] [surface]") return end
         local area = c.parse_area(args[1])
         if not area then c.reply("Invalid area format. Use: x1,y1,x2,y2") return end
 
@@ -45,10 +45,10 @@ local function register_commands()
         c.reply(table.concat(parts, ","))
     end)
 
-    commands.add_command("resources-set", "Set resource amount at position. Usage: /resources-set x,y amount [surface]", function(cmd)
+    commands.add_command("resource-set", "Set resource amount at position. Usage: /resource-set x,y amount [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 2 then c.reply("Usage: /resources-set x,y amount [surface]") return end
+        if #args < 2 then c.reply("Usage: /resource-set x,y amount [surface]") return end
         local pos = c.parse_position(args[1])
         if not pos then c.reply("Invalid position. Use: x,y") return end
         local amount = tonumber(args[2])

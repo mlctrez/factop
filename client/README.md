@@ -30,9 +30,11 @@ package must use the same singular name:
 | `softmod/factop/player.lua` | `client/player` | `player.Client` |
 
 Do not use plural forms for module or package names (e.g. use `entity` not
-`entities`, `tile` not `tiles`). RCON command names may still use plurals
-where it reads naturally (e.g. `/players-list`) — the naming rule applies
-to file and package names only.
+`entities`, `tile` not `tiles`). RCON command prefixes also use singular
+nouns (e.g. `/entity-create`, `/tile-fill`, `/resource-count`).
+
+Exception: `game-players` stays plural — it returns a list of players,
+and `game-player` would imply a single player operation.
 
 When creating a new softmod command module:
 
@@ -44,7 +46,7 @@ When creating a new softmod command module:
    typed methods for each command, and a `Parse` function for any structured
    response format.
 4. The Lua command names and Go method names should mirror each other:
-   `/tiles-fill` → `tiles.Client.Fill()`, `/entities-create` → `entities.Client.Create()`.
+   `/tile-fill` → `tile.Client.Fill()`, `/entity-create` → `entity.Client.Create()`.
 
 ## Connection
 
@@ -70,12 +72,12 @@ wire format into typed Go structs.
 
 | Module | Wire format | Example |
 |---|---|---|
-| tiles-read | `name:x:y,...` | `concrete:0:0,grass-1:1:0` |
-| entities-find | `name:x:y:unit_number,...` | `iron-chest:5.5:10.5:42` |
+| tile-read | `name:x:y,...` | `concrete:0:0,grass-1:1:0` |
+| entity-find | `name:x:y:unit_number,...` | `iron-chest:5.5:10.5:42` |
 | surface-list | `name:index,...` | `nauvis:1,vulcanus:2` |
 | surface-info | `key:value,...` | `name:nauvis,always_day:false,...` |
-| resources-count | `name:count,...` | `iron-ore:12345,copper-ore:6789` |
-| resources-find | `name:x:y:amount,...` | `iron-ore:10.5:20.5:1500` |
+| resource-count | `name:count,...` | `iron-ore:12345,copper-ore:6789` |
+| resource-find | `name:x:y:amount,...` | `iron-ore:10.5:20.5:1500` |
 | pollution-get | `float` | `123.45` |
 | pollution-total | `float` | `5678.90` |
 

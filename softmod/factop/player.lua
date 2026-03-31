@@ -109,27 +109,7 @@ end
 
 local function register_commands()
 
-    commands.add_command("players-list", "List connected players. Usage: /players-list", function(cmd)
-        if not c.rcon_only(cmd) then return end
-        local parts = {}
-        for _, player in pairs(game.connected_players) do
-            local x, y = 0, 0
-            local has_char = "false"
-            if player.character and player.character.valid then
-                x = player.character.position.x
-                y = player.character.position.y
-                has_char = "true"
-            elseif player.physical_position then
-                x = player.physical_position.x
-                y = player.physical_position.y
-            end
-            parts[#parts + 1] = string.format("%s:%d:%.1f:%.1f:%s",
-                player.name, player.index, x, y, has_char)
-        end
-        c.reply(table.concat(parts, ","))
-    end)
-
-    commands.add_command("players-respawn", "Respawn player character. Usage: /players-respawn [player]", function(cmd)
+    commands.add_command("player-respawn", "Respawn player character. Usage: /player-respawn [player]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
 
@@ -163,10 +143,10 @@ local function register_commands()
         end
     end)
 
-    commands.add_command("players-teleport", "Teleport player. Usage: /players-teleport player x,y [surface]", function(cmd)
+    commands.add_command("player-teleport", "Teleport player. Usage: /player-teleport player x,y [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)
-        if #args < 2 then c.reply("Usage: /players-teleport player x,y [surface]") return end
+        if #args < 2 then c.reply("Usage: /player-teleport player x,y [surface]") return end
 
         local player = game.get_player(args[1])
         if not player then

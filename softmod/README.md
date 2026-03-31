@@ -126,7 +126,7 @@ return my_mod
 
 External invocation via RCON (through NATS):
 ```
-/tiles-fill -10,-10,10,10 concrete
+/tile-fill -10,-10,10,10 concrete
 ```
 
 ## Tile Manipulation (factop/tiles.lua)
@@ -137,21 +137,21 @@ The `tiles.lua` module provides area-based tile operations exposed as console co
 
 | Command | Usage | Description |
 |---------|-------|-------------|
-| `/tiles-fill` | `x1,y1,x2,y2 tile_name [surface]` | Fill rectangular area with a tile type |
-| `/tiles-read` | `x1,y1,x2,y2 [filter_name] [surface]` | Read tile names/positions in area. Returns compact `name:x:y,...` format |
-| `/tiles-remove` | `x1,y1,x2,y2 [filter_name] [surface]` | Restore hidden tiles in area (reverts placed tiles) |
-| `/tiles-replace` | `x1,y1,x2,y2 from_name to_name [surface]` | Replace one tile type with another |
-| `/tiles-checker` | `x1,y1,x2,y2 tile_a tile_b [surface]` | Fill area with alternating checkerboard pattern |
+| `/tile-fill` | `x1,y1,x2,y2 tile_name [surface]` | Fill rectangular area with a tile type |
+| `/tile-read` | `x1,y1,x2,y2 [filter_name] [surface]` | Read tile names/positions in area. Returns compact `name:x:y,...` format |
+| `/tile-remove` | `x1,y1,x2,y2 [filter_name] [surface]` | Restore hidden tiles in area (reverts placed tiles) |
+| `/tile-replace` | `x1,y1,x2,y2 from_name to_name [surface]` | Replace one tile type with another |
+| `/tile-checker` | `x1,y1,x2,y2 tile_a tile_b [surface]` | Fill area with alternating checkerboard pattern |
 
 ### Examples via RCON
 
 ```
-/tiles-fill -20,-20,20,20 concrete
-/tiles-read -5,-5,5,5
-/tiles-read -5,-5,5,5 concrete
-/tiles-remove -20,-20,20,20 concrete
-/tiles-replace -10,-10,10,10 grass-1 concrete
-/tiles-checker 0,0,16,16 concrete stone-path
+/tile-fill -20,-20,20,20 concrete
+/tile-read -5,-5,5,5
+/tile-read -5,-5,5,5 concrete
+/tile-remove -20,-20,20,20 concrete
+/tile-replace -10,-10,10,10 grass-1 concrete
+/tile-checker 0,0,16,16 concrete stone-path
 ```
 
 ### Design notes

@@ -13,6 +13,10 @@
 
 ## Lua File Requirements (softmod/factop/*.lua)
 
+### Naming Convention
+
+All Lua module files use singular nouns: `entity.lua`, `tile.lua`, `surface.lua`, `resource.lua`, `player.lua`. Do not use plural forms. The corresponding Go client package under `client/` must use the same singular name: `client/entity/`, `client/tile/`, etc.
+
 All Lua files in the `softmod/factop/` directory are automatically included in the generated `control.lua` via `controlHeader.lua`, with one exception: `common.lua` is excluded from `add_lib` registration since it has no event handlers. It is instead required directly by modules that need it.
 
 ### Shared Helpers (factop/common.lua)

@@ -1,4 +1,4 @@
-package tiles
+package tile
 
 import (
 	"testing"

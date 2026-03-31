@@ -1,6 +1,6 @@
 // Package resources provides a typed Go client for the resource and pollution
 // commands registered by softmod/factop/resources.lua.
-package resources
+package resource
 
 import (
 	"fmt"

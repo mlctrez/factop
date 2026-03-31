@@ -1,4 +1,4 @@
-local tiles_mod = {}
+local tile_mod = {}
 local c = require("factop.common")
 
 -- Tile manipulation module for factop softmod.
@@ -164,7 +164,7 @@ local function register_commands()
 
 end
 
-tiles_mod.on_init = register_commands
-tiles_mod.on_load = register_commands
+tile_mod.on_init = register_commands
+tile_mod.on_load = register_commands
 
-return tiles_mod
+return tile_mod

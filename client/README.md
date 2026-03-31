@@ -7,24 +7,32 @@ Typed Go client for interacting with a factop server over NATS.
 ```
 client/
 ├── client.go              # Shared Conn type (NATS + RCON-over-NATS)
-├── tiles/tiles.go         # Client for softmod/factop/tiles.lua commands
-├── entities/entities.go   # Client for softmod/factop/entities.lua commands
+├── entity/entities.go     # Client for softmod/factop/entity.lua commands
+├── player/players.go      # Client for softmod/factop/player.lua commands
+├── prototype/prototypes_gen.go # Generated prototype name validation
+├── resource/resources.go  # Client for softmod/factop/resource.lua commands
 ├── surface/surface.go     # Client for softmod/factop/surface.lua commands
-├── resources/resources.go # Client for softmod/factop/resources.lua commands
+├── tile/tiles.go          # Client for softmod/factop/tile.lua commands
 └── README.md
 ```
 
 ## Naming Convention
 
-Each `softmod/factop/<name>.lua` file that registers RCON commands gets a
-corresponding `client/<name>/` Go package:
+All module names use singular nouns. Both the Lua file and the Go client
+package must use the same singular name:
 
 | Lua module | Go package | Client type |
 |---|---|---|
-| `softmod/factop/tiles.lua` | `client/tiles` | `tiles.Client` |
-| `softmod/factop/entities.lua` | `client/entities` | `entities.Client` |
+| `softmod/factop/tile.lua` | `client/tile` | `tile.Client` |
+| `softmod/factop/entity.lua` | `client/entity` | `entity.Client` |
 | `softmod/factop/surface.lua` | `client/surface` | `surface.Client` |
-| `softmod/factop/resources.lua` | `client/resources` | `resources.Client` |
+| `softmod/factop/resource.lua` | `client/resource` | `resource.Client` |
+| `softmod/factop/player.lua` | `client/player` | `player.Client` |
+
+Do not use plural forms for module or package names (e.g. use `entity` not
+`entities`, `tile` not `tiles`). RCON command names may still use plurals
+where it reads naturally (e.g. `/players-list`) — the naming rule applies
+to file and package names only.
 
 When creating a new softmod command module:
 
@@ -47,8 +55,8 @@ The server address is configured once at dial time:
 conn, err := client.Dial("nats://factorio:4222")
 defer conn.Close()
 
-tc := tiles.New(conn)
-ec := entities.New(conn)
+tc := tile.New(conn)
+ec := entity.New(conn)
 ```
 
 Options:

@@ -1,4 +1,4 @@
-local resources_mod = {}
+local resource_mod = {}
 local c = require("factop.common")
 
 -- Resource and pollution manipulation module for factop softmod.
@@ -100,7 +100,7 @@ local function register_commands()
 
 end
 
-resources_mod.on_init = register_commands
-resources_mod.on_load = register_commands
+resource_mod.on_init = register_commands
+resource_mod.on_load = register_commands
 
-return resources_mod
+return resource_mod

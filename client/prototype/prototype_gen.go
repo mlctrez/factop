@@ -3,7 +3,7 @@
 // Source: Factorio data-raw-dump.json
 // Regenerate: go run ./protodump --factorio-dir /opt/factorio/<version>
 
-package prototypes
+package prototype
 
 // AccumulatorNames contains all valid accumulator prototype names.
 var AccumulatorNames = []string{

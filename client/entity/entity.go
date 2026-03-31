@@ -1,6 +1,6 @@
 // Package entities provides a typed Go client for the entity manipulation
 // commands registered by softmod/factop/entities.lua.
-package entities
+package entity
 
 import (
 	"fmt"

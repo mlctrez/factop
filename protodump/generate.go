@@ -10,7 +10,7 @@ var goTemplate = template.Must(template.New("prototypes").Parse(`// Code generat
 // Source: Factorio data-raw-dump.json
 // Regenerate: go run ./protodump --factorio-dir /opt/factorio/<version>
 
-package prototypes
+package prototype
 {{range .Groups}}
 // {{.GoID}}Names contains all valid {{.Type}} prototype names.
 var {{.GoID}}Names = []string{

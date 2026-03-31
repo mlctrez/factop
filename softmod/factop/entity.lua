@@ -1,4 +1,4 @@
-local entities_mod = {}
+local entity_mod = {}
 local c = require("factop.common")
 
 -- Entity manipulation module for factop softmod.
@@ -109,7 +109,7 @@ local function register_commands()
 
 end
 
-entities_mod.on_init = register_commands
-entities_mod.on_load = register_commands
+entity_mod.on_init = register_commands
+entity_mod.on_load = register_commands
 
-return entities_mod
+return entity_mod

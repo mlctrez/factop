@@ -34,7 +34,7 @@ func main() {
 
 	flag.StringVar(&factorioDir, "factorio-dir", "", "path to Factorio install (e.g. /opt/factorio/2.0.76)")
 	flag.StringVar(&dumpPath, "dump-path", "", "direct path to data-raw-dump.json (overrides factorio-dir)")
-	flag.StringVar(&output, "output", "client/prototypes/prototypes_gen.go", "output Go file path")
+	flag.StringVar(&output, "output", "client/prototype/prototype_gen.go", "output Go file path")
 	flag.StringVar(&types, "types", "", "comma-separated prototype types to include (empty = all entity-like + tile)")
 	flag.Parse()
 

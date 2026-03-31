@@ -17,12 +17,12 @@ func TestBuildControlLuaExcludesCommon(t *testing.T) {
 	}
 
 	expected := []string{
-		`add_lib("factop.entities")`,
+		`add_lib("factop.entity")`,
 		`add_lib("factop.goal")`,
 		`add_lib("factop.player")`,
-		`add_lib("factop.resources")`,
+		`add_lib("factop.resource")`,
 		`add_lib("factop.surface")`,
-		`add_lib("factop.tiles")`,
+		`add_lib("factop.tile")`,
 		`add_lib("factop.udp")`,
 	}
 	for _, e := range expected {

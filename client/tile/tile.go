@@ -1,6 +1,6 @@
 // Package tiles provides a typed Go client for the tile manipulation commands
 // registered by softmod/factop/tiles.lua.
-package tiles
+package tile
 
 import (
 	"fmt"

@@ -72,34 +72,61 @@ func main() {
 	// Respawn any players that lost their character during clearing
 	respawnPlayers(gc, pc)
 
-	// Build the 50x50 box walls
+	// Build the box walls (enemy force so players can't remove them)
 	fmt.Println("building box walls...")
-	placed := 0
+	var boxPositions []entity.Position
+	midX := originX + boxSize/2
+	midY := originY + boxSize/2
 	for i := 0; i < boxSize; i++ {
-		// Top wall
-		placeWall(ec, originX+i, originY-1, &placed)
-		// Bottom wall
-		placeWall(ec, originX+i, originY+boxSize, &placed)
-		// Left wall
-		placeWall(ec, originX-1, originY+i, &placed)
-		// Right wall
-		placeWall(ec, originX+boxSize, originY+i, &placed)
+		// Top wall — skip entrance at midpoint
+		if originX+i != midX {
+			boxPositions = append(boxPositions,
+				entity.Position{X: float64(originX+i) + 0.5, Y: float64(originY-1) + 0.5})
+		}
+		// Bottom wall — skip entrance at midpoint
+		if originX+i != midX {
+			boxPositions = append(boxPositions,
+				entity.Position{X: float64(originX+i) + 0.5, Y: float64(originY+boxSize) + 0.5})
+		}
+		// Left wall — skip entrance at midpoint
+		if originY+i != midY {
+			boxPositions = append(boxPositions,
+				entity.Position{X: float64(originX-1) + 0.5, Y: float64(originY+i) + 0.5})
+		}
+		// Right wall — skip entrance at midpoint
+		if originY+i != midY {
+			boxPositions = append(boxPositions,
+				entity.Position{X: float64(originX+boxSize) + 0.5, Y: float64(originY+i) + 0.5})
+		}
 	}
 	// Corners
-	placeWall(ec, originX-1, originY-1, &placed)
-	placeWall(ec, originX+boxSize, originY-1, &placed)
-	placeWall(ec, originX-1, originY+boxSize, &placed)
-	placeWall(ec, originX+boxSize, originY+boxSize, &placed)
-	fmt.Printf("box complete: %d walls placed\n", placed)
+	boxPositions = append(boxPositions,
+		entity.Position{X: float64(originX-1) + 0.5, Y: float64(originY-1) + 0.5},
+		entity.Position{X: float64(originX+boxSize) + 0.5, Y: float64(originY-1) + 0.5},
+		entity.Position{X: float64(originX-1) + 0.5, Y: float64(originY+boxSize) + 0.5},
+		entity.Position{X: float64(originX+boxSize) + 0.5, Y: float64(originY+boxSize) + 0.5},
+	)
+	placed, err := ec.Bulk(boxPositions, wallName, "enemy", "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "box walls: %v\n", err)
+	}
+	fmt.Printf("box complete: %d walls placed (4 entrances at midpoints)\n", placed)
 
 	// Generate maze outside the box
 	fmt.Println("generating maze...")
 	mazeWalls := generateMaze()
 	fmt.Printf("placing %d maze walls...\n", len(mazeWalls))
+	var mazePositions []entity.Position
 	for _, p := range mazeWalls {
-		placeWall(ec, p[0], p[1], &placed)
+		mazePositions = append(mazePositions,
+			entity.Position{X: float64(p[0]) + 0.5, Y: float64(p[1]) + 0.5},
+		)
 	}
-	fmt.Printf("done: %d total walls placed\n", placed)
+	mazePlaced, err := ec.Bulk(mazePositions, wallName, "enemy", "")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "maze walls: %v\n", err)
+	}
+	fmt.Printf("done: %d box + %d maze = %d total walls placed\n", placed, mazePlaced, placed+mazePlaced)
 }
 
 // removeDisconnectedPlayers removes all players from the save except the
@@ -176,20 +203,6 @@ func clearEntities(ec *entity.Client, area entity.Area) {
 			continue
 		}
 		fmt.Printf("  cleared %s: %s\n", name, result)
-	}
-}
-
-func placeWall(ec *entity.Client, x, y int, count *int) {
-	pos := entity.Position{X: float64(x) + 0.5, Y: float64(y) + 0.5}
-	_, err := ec.Create(pos, wallName, "player", "", "")
-	if err != nil {
-		// Walls can fail if something is already there — not fatal
-		fmt.Fprintf(os.Stderr, "wall at %d,%d: %v\n", x, y, err)
-		return
-	}
-	*count++
-	if *count%100 == 0 {
-		fmt.Printf("  placed %d walls...\n", *count)
 	}
 }
 
@@ -306,6 +319,16 @@ func generateMaze() [][2]int {
 		}
 
 		stack = append(stack, next)
+	}
+
+	// Clear the outer border so the maze has open edges
+	for gx := 0; gx < gridW; gx++ {
+		isWall[0][gx] = false
+		isWall[gridH-1][gx] = false
+	}
+	for gy := 0; gy < gridH; gy++ {
+		isWall[gy][0] = false
+		isWall[gy][gridW-1] = false
 	}
 
 	// Collect wall positions, excluding the box interior and box walls

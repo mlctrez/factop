@@ -36,6 +36,43 @@ local function register_commands()
         end
     end)
 
+    -- /entity-bulk <name> <force> <positions> [surface]
+    -- Positions are semicolon-separated x,y pairs: x1,y1;x2,y2;x3,y3
+    -- Creates multiple entities of the same type in a single RCON call.
+    commands.add_command("entity-bulk", "Bulk create entities. Usage: /entity-bulk name force x1,y1;x2,y2;... [surface]", function(cmd)
+        if not c.rcon_only(cmd) then return end
+        local args = c.parse_args(cmd)
+        if #args < 3 then
+            c.reply("Usage: /entity-bulk name force x1,y1;x2,y2;... [surface]")
+            return
+        end
+        local name = args[1]
+        local force = args[2]
+        local surface = c.get_surface(args[4])
+        if not surface then c.reply("Surface not found") return end
+
+        local count = 0
+        local failed = 0
+        for pair in args[3]:gmatch("[^;]+") do
+            local pos = c.parse_position(pair)
+            if pos then
+                local entity = surface.create_entity({ name = name, position = pos, force = force })
+                if entity then
+                    count = count + 1
+                else
+                    failed = failed + 1
+                end
+            else
+                failed = failed + 1
+            end
+        end
+        if failed > 0 then
+            c.reply(string.format("Created %d, failed %d", count, failed))
+        else
+            c.reply(string.format("Created %d", count))
+        end
+    end)
+
     commands.add_command("entity-find", "Find entities. Usage: /entity-find x1,y1,x2,y2 [name] [type] [force] [limit] [surface]", function(cmd)
         if not c.rcon_only(cmd) then return end
         local args = c.parse_args(cmd)

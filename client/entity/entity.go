@@ -87,6 +87,49 @@ func (c *Client) Create(pos Position, name, force, direction, surface string) (s
 	return c.conn.Rcon(cmd)
 }
 
+// maxPositionsPerBatch limits how many positions are sent in a single RCON call
+// to stay within the RCON payload size limit.
+const maxPositionsPerBatch = 200
+
+// Bulk creates multiple entities of the same type in batched RCON calls.
+// Positions are sent in batches to stay within RCON payload limits.
+// Returns total created count and any error from the last failing batch.
+func (c *Client) Bulk(positions []Position, name, force, surface string) (int, error) {
+	if force == "" {
+		force = "player"
+	}
+	total := 0
+	for i := 0; i < len(positions); i += maxPositionsPerBatch {
+		end := i + maxPositionsPerBatch
+		if end > len(positions) {
+			end = len(positions)
+		}
+		batch := positions[i:end]
+
+		var b strings.Builder
+		for j, p := range batch {
+			if j > 0 {
+				b.WriteByte(';')
+			}
+			fmt.Fprintf(&b, "%g,%g", p.X, p.Y)
+		}
+
+		cmd := fmt.Sprintf("/entity-bulk %s %s %s", name, force, b.String())
+		if surface != "" {
+			cmd += " " + surface
+		}
+		raw, err := c.conn.Rcon(cmd)
+		if err != nil {
+			return total, err
+		}
+		// Parse "Created N" or "Created N, failed M"
+		var created int
+		fmt.Sscanf(raw, "Created %d", &created)
+		total += created
+	}
+	return total, nil
+}
+
 // filterArg returns the value or "_" as a skip placeholder.
 func filterArg(s string) string {
 	if s == "" {

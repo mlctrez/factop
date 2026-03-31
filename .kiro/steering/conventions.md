@@ -1,5 +1,6 @@
 ---
 inclusion: auto
+description: Naming conventions, module structure, RCON command patterns, and workflow standards for the factop codebase.
 ---
 
 # Factop Naming and Code Conventions
@@ -71,3 +72,11 @@ Lua code. Regenerate it with `go run ./apidoc` when needed.
 Use `client/prototype/` for compile-time validation of entity and tile names.
 Regenerate with `go run ./protodump --factorio-dir /opt/factorio/<version>`
 after Factorio updates.
+
+## Commit and Push
+
+Use the `modular` command to commit, version bump, and push in one step:
+
+```bash
+modular bump "commit message here"
+```

@@ -320,20 +320,62 @@ func pluginDeploy(conn *nats.Conn) error {
 		return fmt.Errorf("reading binary: %w", err)
 	}
 
-	// Send as single message with command in header.
-	msg := nats.NewMsg("factop.plugin")
-	msg.Header.Set("command", fmt.Sprintf("deploy %s %s", name, version))
-	msg.Data = binData
+	// 768KB chunk size — stays well under the default 1MB NATS max payload
+	// after accounting for headers and subject overhead.
+	const chunkSize = 768 * 1024
 
-	response, err := conn.RequestMsg(msg, 30*time.Second)
-	if err != nil {
-		return err
+	if len(binData) <= chunkSize {
+		// Small binary — send as single message with command in header.
+		msg := nats.NewMsg("factop.plugin")
+		msg.Header.Set("command", fmt.Sprintf("deploy %s %s", name, version))
+		msg.Data = binData
+
+		response, err := conn.RequestMsg(msg, 30*time.Second)
+		if err != nil {
+			return err
+		}
+		if errVal := response.Header.Get("error"); errVal != "" {
+			return errors.New(errVal)
+		}
+		if len(response.Data) > 0 {
+			fmt.Println(string(response.Data))
+		}
+		return nil
 	}
-	if errVal := response.Header.Get("error"); errVal != "" {
-		return errors.New(errVal)
-	}
-	if len(response.Data) > 0 {
-		fmt.Println(string(response.Data))
+
+	// Large binary — send as sequential chunks on factop.plugin.deploy.<name>.<version>.
+	subject := fmt.Sprintf("factop.plugin.deploy.%s.%s", name, version)
+	totalChunks := (len(binData) + chunkSize - 1) / chunkSize
+	fmt.Printf("deploying %s v%s (%d bytes, %d chunks)\n", name, version, len(binData), totalChunks)
+
+	for i := 0; i < totalChunks; i++ {
+		start := i * chunkSize
+		end := start + chunkSize
+		if end > len(binData) {
+			end = len(binData)
+		}
+
+		msg := nats.NewMsg(subject)
+		msg.Header.Set("chunk-index", strconv.Itoa(i))
+		msg.Header.Set("chunk-total", strconv.Itoa(totalChunks))
+		msg.Data = binData[start:end]
+
+		response, err := conn.RequestMsg(msg, 30*time.Second)
+		if err != nil {
+			return fmt.Errorf("sending chunk %d/%d: %w", i+1, totalChunks, err)
+		}
+		if errVal := response.Header.Get("error"); errVal != "" {
+			return fmt.Errorf("chunk %d/%d: %s", i+1, totalChunks, errVal)
+		}
+
+		// Last chunk gets the final deploy response.
+		if i == totalChunks-1 {
+			if len(response.Data) > 0 {
+				fmt.Println(string(response.Data))
+			}
+		} else {
+			fmt.Printf("  chunk %d/%d sent\n", i+1, totalChunks)
+		}
 	}
 	return nil
 }

@@ -98,6 +98,14 @@ type PluginManager struct {
 	mu        sync.Mutex
 	registry  *PluginRegistry
 	instances map[string]*pluginInstance
+	// chunks tracks in-progress chunked deploys keyed by "name/version".
+	chunks map[string]*deployBuffer
+}
+
+// deployBuffer accumulates chunks for a single chunked deploy.
+type deployBuffer struct {
+	total    int
+	received map[int][]byte
 }
 
 func (pm *PluginManager) Startup() error {
@@ -112,6 +120,7 @@ func (pm *PluginManager) Startup() error {
 	}
 
 	pm.instances = make(map[string]*pluginInstance)
+	pm.chunks = make(map[string]*deployBuffer)
 
 	if err := pm.Nats.Subscribe("factop.plugin", pm.handleCommand); err != nil {
 		return fmt.Errorf("subscribing to factop.plugin: %w", err)
@@ -191,12 +200,30 @@ func (pm *PluginManager) stdoutMonitor(msg *nats.Msg) {
 			return
 		}
 		pm.Info("plugin manager detected RCON startup")
-		pm.Factorio.mu.Lock()
-		state := pm.Factorio.state
-		pm.Factorio.mu.Unlock()
-		if state == StateRunning {
-			pm.autoStartPlugins()
-		}
+		// The Factorio component also handles this message and transitions
+		// to StateRunning. Since NATS delivery order between subscribers is
+		// not guaranteed, poll briefly for the state transition.
+		go func() {
+			deadline := time.After(5 * time.Second)
+			ticker := time.NewTicker(100 * time.Millisecond)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-deadline:
+					pm.Warn("timed out waiting for Factorio StateRunning, starting plugins anyway")
+					pm.autoStartPlugins()
+					return
+				case <-ticker.C:
+					pm.Factorio.mu.Lock()
+					state := pm.Factorio.state
+					pm.Factorio.mu.Unlock()
+					if state == StateRunning {
+						pm.autoStartPlugins()
+						return
+					}
+				}
+			}
+		}()
 	}
 }
 
@@ -888,20 +915,77 @@ func installedVersions(name string) ([]string, error) {
 }
 
 // handleDeployChunk handles messages on factop.plugin.deploy.<name>.<version>
-// for chunked binary deploys. For now, it handles single-message deploys by
-// forwarding to cmdDeploy. Full chunking will be refined in task 9.
+// for chunked binary deploys. Chunks arrive with "chunk-index" and "chunk-total"
+// headers. Once all chunks are received, the binary is reassembled and passed
+// to cmdDeploy. If no chunk headers are present, the message is treated as a
+// single-message deploy and forwarded directly.
 func (pm *PluginManager) handleDeployChunk(msg *nats.Msg) {
 	// Subject format: factop.plugin.deploy.<name>.<version>
+	// Version may contain dots (e.g. 0.2.0), so join all tokens from index 4.
 	parts := strings.Split(msg.Subject, ".")
 	if len(parts) < 5 {
 		pm.Nats.Reply(msg, nil, errors.New("invalid deploy subject"))
 		return
 	}
 	name := parts[3]
-	version := parts[4]
+	version := strings.Join(parts[4:], ".")
 
-	// Delegate to cmdDeploy with the parsed name and version.
-	pm.cmdDeploy(msg, []string{name, version})
+	// No chunk headers — treat as single-message deploy.
+	idxStr := msg.Header.Get("chunk-index")
+	totalStr := msg.Header.Get("chunk-total")
+	if idxStr == "" || totalStr == "" {
+		pm.cmdDeploy(msg, []string{name, version})
+		return
+	}
+
+	idx, err := strconv.Atoi(idxStr)
+	if err != nil {
+		pm.Nats.Reply(msg, nil, fmt.Errorf("invalid chunk-index: %w", err))
+		return
+	}
+	total, err := strconv.Atoi(totalStr)
+	if err != nil {
+		pm.Nats.Reply(msg, nil, fmt.Errorf("invalid chunk-total: %w", err))
+		return
+	}
+
+	key := name + "/" + version
+
+	pm.mu.Lock()
+	buf, ok := pm.chunks[key]
+	if !ok {
+		buf = &deployBuffer{total: total, received: make(map[int][]byte)}
+		pm.chunks[key] = buf
+	}
+	// Copy chunk data so the NATS message buffer can be reused.
+	chunk := make([]byte, len(msg.Data))
+	copy(chunk, msg.Data)
+	buf.received[idx] = chunk
+
+	if len(buf.received) < buf.total {
+		// Not all chunks received yet — ack this chunk and wait.
+		pm.mu.Unlock()
+		pm.Nats.Reply(msg, []byte(fmt.Sprintf("chunk %d/%d received", idx+1, total)), nil)
+		return
+	}
+
+	// All chunks received — reassemble in order.
+	delete(pm.chunks, key)
+	pm.mu.Unlock()
+
+	var assembled []byte
+	for i := 0; i < buf.total; i++ {
+		assembled = append(assembled, buf.received[i]...)
+	}
+
+	// Create a synthetic message with the full binary for cmdDeploy.
+	deployMsg := nats.NewMsg(msg.Subject)
+	deployMsg.Reply = msg.Reply
+	deployMsg.Data = assembled
+
+	pm.Info("chunked deploy reassembled", "name", name, "version", version,
+		"chunks", buf.total, "bytes", len(assembled))
+	pm.cmdDeploy(deployMsg, []string{name, version})
 }
 
 // natsWriter implements io.Writer by publishing each complete line

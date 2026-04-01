@@ -569,6 +569,10 @@ func (pm *PluginManager) cmdUnregister(msg *nats.Msg, args []string) {
 	}
 
 	dataDir := filepath.Join(PluginBaseDir, "data", name)
+	binDir := filepath.Join(PluginBaseDir, "bin", name)
+	if err := os.RemoveAll(binDir); err != nil {
+		pm.Warn("failed to remove plugin bin dir", "name", name, "error", err)
+	}
 	pm.Info("plugin unregistered, data dir preserved", "name", name, "dataDir", dataDir)
 	pm.Nats.Reply(msg, []byte("unregistered "+name), nil)
 }

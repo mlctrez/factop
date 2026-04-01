@@ -48,6 +48,8 @@ func main() {
 		err = Rcon()
 	case "lrcon":
 		err = LRcon()
+	case "plugin":
+		err = Plugin()
 	default:
 		fmt.Printf("Unknown command: %s\n", command)
 		printUsage()
@@ -69,6 +71,7 @@ func printUsage() {
 	fmt.Println("  prcon <delay> <p> - Periodically send RCON command from file")
 	fmt.Println("  rcon <path>       - Send RCON command from file")
 	fmt.Println("  lrcon <path>      - Send RCON command to local RCON via NATS")
+	fmt.Println("  plugin <sub> ...  - Manage plugins (register, unregister, start, stop, restart, status, deploy, rollback, versions, version-remove, list)")
 }
 
 const WatchReconnectWait = 250 * time.Millisecond
@@ -93,7 +96,7 @@ func Watch() (err error) {
 	}
 	defer conn.Close()
 
-	fmt.Println("watching factorio.*, udp.*, factop.log ...")
+	fmt.Println("watching factorio.*, udp.*, factop.log, plugin.* ...")
 	_, err = conn.Subscribe("factorio.*", func(msg *nats.Msg) {
 		data := string(msg.Data)
 		if msg.Subject == "factorio.softmod" {
@@ -113,6 +116,13 @@ func Watch() (err error) {
 	}
 
 	_, err = conn.Subscribe("factop.log", func(msg *nats.Msg) {
+		fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = conn.Subscribe("plugin.*", func(msg *nats.Msg) {
 		fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
 	})
 	if err != nil {
@@ -270,6 +280,60 @@ func LRcon() (err error) {
 	response := string(msg.Data)
 	if response != "" {
 		fmt.Println(response)
+	}
+	return nil
+}
+
+func Plugin() (err error) {
+	if len(os.Args) < 3 {
+		return errors.New("usage: plugin <subcommand> [args...]")
+	}
+	var conn *nats.Conn
+	if conn, err = nats.Connect(fmt.Sprintf("nats://%s", Host)); err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	subcmd := os.Args[2]
+
+	switch subcmd {
+	case "deploy":
+		return pluginDeploy(conn)
+	default:
+		// All other commands: join subcmd + remaining args, send to factop.plugin
+		payload := subcmd
+		if len(os.Args) > 3 {
+			payload = subcmd + " " + strings.Join(os.Args[3:], " ")
+		}
+		return sendMessage(conn, "factop.plugin", []byte(payload))
+	}
+}
+
+func pluginDeploy(conn *nats.Conn) error {
+	// Usage: plugin deploy <name> <version> <binary-path>
+	if len(os.Args) < 6 {
+		return errors.New("usage: plugin deploy <name> <version> <binary-path>")
+	}
+	name, version, binPath := os.Args[3], os.Args[4], os.Args[5]
+	binData, err := os.ReadFile(binPath)
+	if err != nil {
+		return fmt.Errorf("reading binary: %w", err)
+	}
+
+	// Send as single message with command in header.
+	msg := nats.NewMsg("factop.plugin")
+	msg.Header.Set("command", fmt.Sprintf("deploy %s %s", name, version))
+	msg.Data = binData
+
+	response, err := conn.RequestMsg(msg, 30*time.Second)
+	if err != nil {
+		return err
+	}
+	if errVal := response.Header.Get("error"); errVal != "" {
+		return errors.New(errVal)
+	}
+	if len(response.Data) > 0 {
+		fmt.Println(string(response.Data))
 	}
 	return nil
 }

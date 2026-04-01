@@ -76,7 +76,7 @@ func (n *Nats) Subscribe(subject string, handler nats.MsgHandler) error {
 }
 
 func (n *Nats) newServer() (err error) {
-	o := &server.Options{Host: os.Getenv("NATS_HOST"), Port: 4222, NoSigs: true}
+	o := &server.Options{Host: os.Getenv("NATS_HOST"), Port: 4222, NoSigs: true, MaxPayload: 32 * 1024 * 1024}
 	if portEnv := os.Getenv("NATS_PORT"); portEnv != "" {
 		if o.Port, err = strconv.Atoi(portEnv); err != nil {
 			return fmt.Errorf("invalid NATS_PORT environment : %w", err)

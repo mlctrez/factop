@@ -21,6 +21,7 @@ func TestBuildControlLuaExcludesCommon(t *testing.T) {
 		`add_lib("factop.game")`,
 		`add_lib("factop.goal")`,
 		`add_lib("factop.player")`,
+		`add_lib("factop.playerattr")`,
 		`add_lib("factop.resource")`,
 		`add_lib("factop.surface")`,
 		`add_lib("factop.tile")`,

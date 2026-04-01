@@ -45,6 +45,7 @@ func (sv *Service) Start(s kservice.Service) error {
 		&Factorio{},
 		&Rcon{},
 		&Command{},
+		&PluginManager{},
 		&WebServer{},
 		&UDPBridge{},
 	}

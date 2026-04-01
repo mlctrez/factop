@@ -62,6 +62,14 @@ Do not use JSON — Lua has no built-in JSON encoder.
 - Surface info: `key:value,key:value,...`
 - Scalar values: plain text (`123.45`, `Placed 100 tiles`)
 
+## UDP Event Formats
+
+UDP event messages use the same colon-separated convention as wire formats.
+When a player is involved in an event, include the player index in the
+message payload. Use `0` as the player index when no player is involved
+(Factorio player indices are 1-based, so 0 is an unambiguous sentinel).
+This applies to all UDP event messages, not just entity events.
+
 ## Factorio API Reference
 
 Use `apidoc/factorio-api.md` as the API reference when writing new softmod

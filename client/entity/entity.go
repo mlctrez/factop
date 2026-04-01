@@ -216,3 +216,83 @@ func Parse(s string) ([]Entity, error) {
 	}
 	return result, nil
 }
+
+// EntityEvent represents a parsed entity lifecycle UDP message.
+type EntityEvent struct {
+	Event        string
+	Name         string
+	X            float64
+	Y            float64
+	UnitNumber   uint64
+	SurfaceName  string
+	SurfaceIndex int
+	PlayerIndex  int    // 0 means no player involved
+	Cause        string // only set for entity-died events
+}
+
+// ParseEntityEvent extracts entity event data from a UDP message.
+// Expected formats:
+//
+//	[entity-died] name:x:y:unit_number:surface_name:surface_index:player_index:cause
+//	[entity-built] name:x:y:unit_number:surface_name:surface_index:player_index
+//	[entity-mined] name:x:y:unit_number:surface_name:surface_index:player_index
+func ParseEntityEvent(msg string) (EntityEvent, error) {
+	// Extract event name from brackets.
+	if len(msg) < 2 || msg[0] != '[' {
+		return EntityEvent{}, fmt.Errorf("missing event tag")
+	}
+	close := strings.IndexByte(msg, ']')
+	if close < 0 {
+		return EntityEvent{}, fmt.Errorf("missing closing bracket")
+	}
+	event := msg[1:close]
+
+	// The colon-separated payload is the last whitespace-delimited token.
+	fields := strings.Fields(msg)
+	if len(fields) < 2 {
+		return EntityEvent{}, fmt.Errorf("message too short")
+	}
+	payload := fields[len(fields)-1]
+	parts := strings.Split(payload, ":")
+
+	// entity-died has 8 fields (includes cause), others have 7.
+	if len(parts) != 7 && len(parts) != 8 {
+		return EntityEvent{}, fmt.Errorf("expected 7 or 8 colon-separated fields, got %d", len(parts))
+	}
+
+	x, err := strconv.ParseFloat(parts[1], 64)
+	if err != nil {
+		return EntityEvent{}, fmt.Errorf("parse x: %w", err)
+	}
+	y, err := strconv.ParseFloat(parts[2], 64)
+	if err != nil {
+		return EntityEvent{}, fmt.Errorf("parse y: %w", err)
+	}
+	un, err := strconv.ParseUint(parts[3], 10, 64)
+	if err != nil {
+		return EntityEvent{}, fmt.Errorf("parse unit_number: %w", err)
+	}
+	si, err := strconv.Atoi(parts[5])
+	if err != nil {
+		return EntityEvent{}, fmt.Errorf("parse surface index: %w", err)
+	}
+	pi, err := strconv.Atoi(parts[6])
+	if err != nil {
+		return EntityEvent{}, fmt.Errorf("parse player index: %w", err)
+	}
+
+	ev := EntityEvent{
+		Event:        event,
+		Name:         parts[0],
+		X:            x,
+		Y:            y,
+		UnitNumber:   un,
+		SurfaceName:  parts[4],
+		SurfaceIndex: si,
+		PlayerIndex:  pi,
+	}
+	if len(parts) == 8 {
+		ev.Cause = parts[7]
+	}
+	return ev, nil
+}

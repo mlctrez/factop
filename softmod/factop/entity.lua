@@ -2,7 +2,46 @@ local entity_mod = {}
 local c = require("factop.common")
 
 -- Entity manipulation module for factop softmod.
--- Provides basic CRUD operations for entities on a surface.
+-- Provides basic CRUD operations for entities on a surface
+-- and UDP event logging for entity lifecycle events.
+
+local function log_entity_event(event_name, entity, player_index, extra)
+    if not (entity and entity.valid) then return end
+    local surface = entity.surface
+    local pid = player_index or 0
+    local msg = string.format("[%s] %s:%.1f:%.1f:%s:%s:%d:%d",
+        event_name,
+        entity.name, entity.position.x, entity.position.y,
+        tostring(entity.unit_number or 0),
+        surface.name, surface.index, pid)
+    if extra then
+        msg = msg .. ":" .. extra
+    end
+    if #msg > 512 then
+        msg = msg:sub(1, 512)
+    end
+    helpers.send_udp(4000, msg, 0)
+end
+
+-- ---------------------------------------------------------------------------
+-- Event handlers
+-- ---------------------------------------------------------------------------
+
+local function on_entity_died(event)
+    local cause_name = "unknown"
+    if event.cause and event.cause.valid then
+        cause_name = event.cause.name
+    end
+    log_entity_event("entity-died", event.entity, 0, cause_name)
+end
+
+local function on_built_entity(event)
+    log_entity_event("entity-built", event.entity, event.player_index)
+end
+
+local function on_player_mined_entity(event)
+    log_entity_event("entity-mined", event.entity, event.player_index)
+end
 
 -- ---------------------------------------------------------------------------
 -- Console commands
@@ -145,6 +184,12 @@ local function register_commands()
     end)
 
 end
+
+entity_mod.events = {
+    [defines.events.on_entity_died] = on_entity_died,
+    [defines.events.on_built_entity] = on_built_entity,
+    [defines.events.on_player_mined_entity] = on_player_mined_entity,
+}
 
 entity_mod.on_init = register_commands
 entity_mod.on_load = register_commands

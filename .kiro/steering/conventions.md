@@ -80,3 +80,19 @@ Use the `modular` command to commit, version bump, and push in one step:
 ```bash
 modular bump "commit message here"
 ```
+
+Commit messages must always be multi-line: a short summary line followed by
+a blank line and then one or more detailed paragraphs describing each change
+in the commit. Example:
+
+```
+modular bump "Standardize player move UDP format
+
+Update player.lua to emit colon-separated move events that include
+surface name and index, matching the project wire format conventions.
+
+Move parseMove into client/player as an exported ParseMove function
+returning a typed Move struct for reuse across plugins.
+
+Update pluginone to use player.ParseMove from the client package."
+```

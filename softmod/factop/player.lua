@@ -97,8 +97,10 @@ local function on_player_changed_position(event)
             storage.player_movement[event.player_index] = {
                 x = current_pos.x, y = current_pos.y
             }
-            log_event("move", event, string.format("to {x=%.1f, y=%.1f}",
-                current_pos.x, current_pos.y))
+            local surface = player.surface
+            log_event("move", event, string.format("%s:%d:%.1f:%.1f:%s:%d",
+                player.name, player.index, current_pos.x, current_pos.y,
+                surface.name, surface.index))
         end
     end
 end

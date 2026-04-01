@@ -1,108 +1,126 @@
 # factop
 
-Factorio operator.
+Factorio server operator — a Go service for automating and remotely managing a Factorio headless server.
 
-### Rationale for using a soft mod v.s. an actual mod
+### Why a softmod instead of a regular mod?
 
 * [grok answer](https://x.com/i/grok/share/9eEbNfDbw9s6PPf7qMjJNIW0l)
 
 ### Why this and not [factorio-server-manager](https://github.com/OpenFactorioServerManager/factorio-server-manager)?
 
-* This project manages the factorio headless server in a similar manner but adds:
-    * An api for applying a softmod to the currently running save, which greatly speeds up development.
-        * The stop, save file changes, and start steps are handled when a new softmod is applied.
-    * The factop service also exposes a [web server](https://factorio.mlctrez.com). Right now it does nothing. Future
-      enhancements could be:
-        * Tracking player progress, statistics, etc
-        * Administrative functions like resetting the map, etc.
-    * A [nats](https://docs.nats.io/nats-concepts/what-is-nats) server is embedded in the factop service.
-        * The Factorio stdin, stdout, and stderr are exposed as nats subjects.
-    * A rcon connection is managed by the factop service and exposed via a nats subject.
-    * A command-line tool for executing lua code via this rcon connection.
+* Hot-reload softmod application — stop, patch save, restart is handled automatically
+* Embedded [NATS](https://docs.nats.io/nats-concepts/what-is-nats) message bus for all internal and external communication
+* Factorio stdin/stdout/stderr exposed as NATS subjects
+* RCON managed by the service and exposed over NATS
+* Plugin system for extending server behavior with external Go binaries
+* UDP bridge for real-time game event telemetry to plugins
 
 ## Commands
 
-All commands are sent to the factop server over [NATS](https://docs.nats.io/nats-concepts/what-is-nats) using a request/reply pattern. The CLI tool in `cmd/main.go` provides convenience wrappers for these.
+All commands use NATS request/reply. The CLI in `cmd/main.go` wraps them.
 
-> **Note**: Mage was originally used for these operations but was replaced by a custom CLI in `cmd/main.go` because of Mage's limitations with variadic command-line arguments. The `cmd/main.go` file is a direct port of the original Mage targets to maintain a familiar structure.
->
-> **Note**: For brevity, the command `focmd` is used in the examples below. You should create an alias (e.g., `alias focmd='go run cmd/main.go'`) or pre-compile the binary to start using these commands.
+> For brevity, `focmd` is used below. Create an alias (`alias focmd='go run cmd/main.go'`) or build the binary.
 
-### Server Management (`factop.command`)
+### Server Management (`focmd command <name>`)
 
-Sent via `focmd command <name>`:
+| Command | Description |
+|---------|-------------|
+| `status` | Current server state |
+| `start` | Start the Factorio server |
+| `stop` | Shut down the Factorio server |
+| `restart` | Restart the Factorio server |
+| `reset` | Delete save and start fresh |
+| `latest` | Download the latest Factorio version |
+| `list-versions` | List installed Factorio versions |
+| `set-version <v>` | Switch Factorio version and restart |
 
-| Command   | Description                                              |
-|-----------|----------------------------------------------------------|
-| `status`  | Returns the current server state (`running` or `stopped`) |
-| `stop`    | Shuts down the Factorio server                           |
-| `restart` | Restarts the Factorio server                             |
-| `reset`   | Deletes the save file and restarts with a fresh map      |
-| `latest`  | Starts a background download of the latest Factorio version |
-| `list-versions` | Lists available Factorio versions in `/opt/factorio` |
-| `set-version <version>` | Sets the current Factorio version and restarts the server |
+### RCON
 
-### RCON (`factop.rcon`)
+| Command | Description |
+|---------|-------------|
+| `focmd rcon <path>` | Execute Lua file via RCON |
+| `focmd prcon <delay> <path>` | Execute Lua file on a repeating timer |
+| `focmd lrcon <path>` | Execute via local NATS (localhost) |
 
-Sent via `focmd rcon <path-to-lua-file>`. Lua scripts are stripped of comments and blank lines, prefixed with `/sc`, and executed through the managed RCON connection.
+### Softmod
 
-`focmd prcon <delay-in-seconds> <path-to-lua-file>` does the same thing on a repeating timer.
+`focmd softmod` — packages `softmod/` into a zip, sends it to the server, which stops Factorio, patches the save, and restarts.
 
-`focmd lrcon <path-to-lua-file>` sends to a local NATS server at `localhost` instead of the remote host.
+### Plugin Management (`focmd plugin <subcommand>`)
 
-### Softmod (`factorio.softmod`)
+| Subcommand | Description |
+|------------|-------------|
+| `register <name> <binary-path>` | Register a plugin |
+| `unregister <name>` | Remove a plugin |
+| `start <name>` | Start a plugin |
+| `stop <name>` | Stop a plugin |
+| `restart <name>` | Restart a plugin |
+| `status` | Show all plugin states |
+| `list` | List registered plugins |
+| `deploy <name> <version> <binary-path>` | Deploy a plugin binary |
+| `rollback <name> <version>` | Roll back to a previous version |
+| `versions <name>` | List installed versions |
+| `version-remove <name> <version>` | Delete a version from disk |
 
-Sent via `focmd softmod`. This packages the `softmod/` directory into a zip, sends it to the server, which then stops Factorio, applies the softmod to the save file, and restarts.
+### Monitoring
+
+`focmd watch` — subscribe to `factorio.*`, `udp.*`, `factop.log`, and `plugin.*` NATS subjects in real time.
 
 ## Architecture
 
-`factop` is designed as a modular service built in Go, focusing on automation and remote management of a Factorio headless server.
+The service uses `github.com/mlctrez/bind` for dependency injection and component lifecycle. Components are defined in `service/` and wired in `service/service.go`:
 
-### Component-Based Design
-
-The project uses the `github.com/mlctrez/bind` library for dependency injection and component lifecycle management. Key components are defined in the `service/` directory and wired together in `service/service.go`:
-
-*   **Nats**: Embeds a NATS server and provides a central message bus for all internal and external communication.
-*   **Factorio**: Manages the lifecycle of the Factorio headless server process. It handles process startup, shutdown, and redirects `stdin`, `stdout`, and `stderr` to NATS subjects.
-*   **UDPBridge**: Acts as a proxy for UDP traffic on ports 4000 (incoming) and 4001 (outgoing), bridging game packets to NATS subjects (`udp.incoming`, `udp.outgoing`).
-*   **Rcon**: Monitors Factorio's `stdout` for the RCON startup marker, establishes a connection, and exposes an execution interface via NATS.
-*   **SoftMod**: Handles the logic for injecting a "soft mod" (Lua scripts and assets) directly into the Factorio save file (`.zip`).
-*   **Command**: Subscribes to the `factop.command` subject and dispatches administrative actions to the `Factorio` component.
-*   **Settings**: Ensures that necessary configuration files (server settings, map gen settings, etc.) exist in `/opt/factorio/settings`.
-*   **WebServer**: A minimal HTTP server (port 8080) for health checks and future web-based management features.
+| Component | Description |
+|-----------|-------------|
+| Nats | Embedded NATS server, central message bus |
+| Settings | Configuration management (`factop-settings.json`) |
+| SoftMod | Injects Lua softmod into the Factorio save zip |
+| Factorio | Server process lifecycle with a formal state machine |
+| Rcon | RCON connection management, exposed via NATS |
+| Command | Server management command dispatch (`factop.command`) |
+| PluginManager | External plugin process lifecycle, deployment, versioning (`factop.plugin`) |
+| WebServer | HTTP server (port 8080) for health checks |
+| UDPBridge | Bridges game UDP traffic (ports 4000/4001) to NATS (`udp.incoming`/`udp.outgoing`) |
 
 ### Data Flows
 
-1.  **Command & Control**:
-    *   Client CLI (`focmd`) sends a request to a NATS subject (e.g., `factop.command`).
-    *   The corresponding service component (e.g., `Command`) processes the request and interacts with the `Factorio` component.
-    *   A response is sent back to the client via the NATS reply subject.
+1. **Command & Control** — CLI sends NATS request → service component processes → reply returned
+2. **Factorio I/O** — stdout/stderr published to `factorio.stdout`/`factorio.stderr`, stdin writable via `factorio.stdin`
+3. **RCON** — detects startup marker on stdout, connects, serves requests on `factop.rcon`
+4. **Softmod** — receives zip on `factorio.softmod`, stops server, patches save, restarts
+5. **UDP Events** — Lua softmod emits game events via `helpers.send_udp`, UDPBridge publishes to `udp.incoming`, plugins subscribe via NATS
+6. **Plugins** — auto-start after Factorio reaches Running state, health-checked every 30s, auto-restart on failure (3 attempts with backoff)
 
-2.  **Factorio I/O**:
-    *   The `Factorio` component captures the server's `stdout` and `stderr` and publishes them to `factorio.stdout` and `factorio.stderr`.
-    *   Subscribers to these subjects (like the `Rcon` monitor or a remote logger) can process this data in real-time.
-    *   Writing to `factorio.stdin` allows sending console commands directly to the server process.
+## Project Structure
 
-3.  **RCON Execution**:
-    *   When the `Rcon` component detects the "Starting RCON interface" message in `stdout`, it connects to the local RCON port.
-    *   Requests on `factop.rcon` are executed via this connection, and results are returned to the caller.
+| Path | Description |
+|------|-------------|
+| `factop.go` | Service entry point |
+| `service/` | Core service components |
+| `softmod/` | Lua softmod source (injected into save) |
+| `client/` | Typed Go client packages for RCON commands |
+| `plugin/` | Plugin SDK for building external plugins |
+| `pluginexample/` | Example plugin (lab trail) |
+| `cmd/main.go` | CLI tool |
+| `apidoc/` | Factorio Lua API doc generator |
+| `protodump/` | Prototype name extractor for compile-time validation |
 
-4.  **Softmod Application**:
-    *   The `SoftMod` component receives a zip payload on `factorio.softmod`.
-    *   It stops the Factorio server, modifies the existing save file by injecting the new files, and restarts the server. This allows for rapid iteration on Lua-based mods without manual file manipulation.
-
-## Getting Started for Developers
+## Getting Started
 
 ### Prerequisites
-*   Go 1.25+
 
-### Building and Deploying
-The project uses a custom CLI in `cmd/main.go` for most tasks:
-*   `focmd service`: Builds the `factop` binary and deploys it to the configured `Host`.
-*   `focmd softmod`: Packages the local `softmod/` directory and applies it to the remote server.
+* Go 1.25+
 
-### Project Structure
-*   `factop.go`: Entry point for the service.
-*   `service/`: Core component logic.
-*   `softmod/`: Source files for the Factorio soft mod (Lua scripts, graphics, etc.).
-*   `cmd/main.go`: CLI tool for remote management (previously Mage).
+### Build and Deploy
+
+```bash
+# Deploy the factop service
+focmd service
+
+# Deploy the softmod
+focmd softmod
+
+# Build and deploy a plugin
+CGO_ENABLED=0 go build -ldflags "-s -w" -o /tmp/pluginone ./pluginexample/pluginone/
+focmd plugin deploy pluginone 0.1.0 /tmp/pluginone
+```

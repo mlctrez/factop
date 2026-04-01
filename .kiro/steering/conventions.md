@@ -33,6 +33,16 @@ Each Lua module in `softmod/factop/` that registers RCON commands must:
 `common.lua` is excluded from `add_lib` registration by `softmod.go` and
 must not contain event handlers.
 
+All `.lua` files in `softmod/factop/` are automatically discovered by
+`softmod.go` and added to the generated `control.lua` via `add_lib`.
+The returned table may include these keys for the Factorio `event_handler`:
+`events`, `on_nth_tick`, `on_init`, `on_load`, `on_configuration_changed`.
+
+Command registration happens in `on_init` (new save) and `on_load`
+(existing save loaded, which is the path used during softmod deployment).
+Both must be implemented. `commands.add_command` errors on duplicate names,
+so the registration function must be idempotent.
+
 ## Client Package Structure
 
 Each `softmod/factop/<name>.lua` gets a corresponding `client/<name>/` Go package:
@@ -41,6 +51,13 @@ Each `softmod/factop/<name>.lua` gets a corresponding `client/<name>/` Go packag
 - One method per RCON command
 - A `Parse` function for any structured response wire format
 - Tests for the parser
+
+All sub-packages share a `*client.Conn` which wraps the NATS connection.
+Lua command names and Go method names mirror each other:
+`/tile-fill` → `tile.Client.Fill()`, `/entity-create` → `entity.Client.Create()`.
+
+For commands with optional positional arguments, use `_` to skip a filter
+field. The Lua side treats `_` as "no filter".
 
 ## RCON Command Naming
 
@@ -69,6 +86,8 @@ When a player is involved in an event, include the player index in the
 message payload. Use `0` as the player index when no player is involved
 (Factorio player indices are 1-based, so 0 is an unambiguous sentinel).
 This applies to all UDP event messages, not just entity events.
+
+UDP packets should be kept under 512 bytes to avoid fragmentation.
 
 ## Factorio API Reference
 

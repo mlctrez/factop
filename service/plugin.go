@@ -135,6 +135,18 @@ func (pm *PluginManager) Startup() error {
 	}
 
 	pm.Info("plugin manager started", "plugins", len(pm.registry.Plugins))
+
+	// If Factorio is already running (e.g. it started before this subscription
+	// was active), auto-start plugins immediately rather than waiting for a
+	// RCON marker that has already fired.
+	pm.Factorio.mu.Lock()
+	alreadyRunning := pm.Factorio.state == StateRunning
+	pm.Factorio.mu.Unlock()
+	if alreadyRunning {
+		pm.Info("factorio already running, auto-starting plugins")
+		go pm.autoStartPlugins()
+	}
+
 	return nil
 }
 

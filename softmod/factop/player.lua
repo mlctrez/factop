@@ -2,18 +2,18 @@
 -- Emits [move] UDP messages when a player moves beyond the movement threshold.
 
 local player_mod = {}
-local c = require("factop.common")
 
 local MOVEMENT_THRESHOLD = 2
 
-local function setup()
+-- storage may only be written outside on_load (Factorio multiplayer rule).
+local function ensure_storage()
     if storage.player_movement == nil then
         storage.player_movement = {}
     end
 end
 
 local function on_player_changed_position(event)
-    setup()
+    ensure_storage()
     local p = game.players[event.player_index]
     if not (p and p.valid) then return end
 
@@ -45,7 +45,7 @@ player_mod.events = {
     [defines.events.on_player_changed_position] = on_player_changed_position,
 }
 
-player_mod.on_init = setup
-player_mod.on_load = setup
+player_mod.on_init = ensure_storage
+-- intentionally no on_load: must not mutate storage there
 
 return player_mod

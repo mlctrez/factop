@@ -1,15 +1,12 @@
 # Documentation
 
-## Architecture Decision Records
-
-| Document | Summary |
+| Document | Purpose |
 |----------|---------|
-| [001-codegen-single-source-of-truth.md](adr/001-codegen-single-source-of-truth.md) | Use Go struct annotations as the single source of truth for wire format, generating both Go and Lua code. |
+| **[rpg.md](rpg.md)** | Factorio RPG plan and how to work on it |
+| [../README.md](../README.md) | factop operator: CLI, deploy, architecture |
+| [../softmod/README.md](../softmod/README.md) | Softmod injection note |
+| [../apidoc/README.md](../apidoc/README.md) | Regenerating Factorio Lua API markdown |
+| [../.kiro/steering/conventions.md](../.kiro/steering/conventions.md) | Naming and wire-format conventions |
+| [../.kiro/steering/build.md](../.kiro/steering/build.md) | Build / test notes |
 
-## Archived Documents
-
-| Document | Summary |
-|----------|---------|
-| [arch_analysis.md](archive/arch_analysis.md) | Initial architecture analysis of the factop codebase and component relationships. |
-| [arch_improvements.md](archive/arch_improvements.md) | Proposed improvements to the factop architecture. |
-| [arch_option_f_plan.md](archive/arch_option_f_plan.md) | Detailed plan for Option F: single-source-of-truth code generation in five phases. |
+Generated reference (large): [../apidoc/factorio-api.md](../apidoc/factorio-api.md) — regenerate with `go run ./apidoc`.

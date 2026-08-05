@@ -2,6 +2,8 @@
 
 Factorio server operator — a Go service for automating and remotely managing a Factorio headless server.
 
+**Building a Factorio RPG on top of this?** Start here: **[docs/rpg.md](docs/rpg.md)** (single current plan).
+
 ### Why a softmod instead of a regular mod?
 
 * [grok answer](https://x.com/i/grok/share/9eEbNfDbw9s6PPf7qMjJNIW0l)
@@ -64,7 +66,7 @@ All commands use NATS request/reply. The CLI in `cmd/main.go` wraps them.
 
 ### Monitoring
 
-`focmd watch` — subscribe to `factorio.*`, `udp.*`, `factop.log`, and `plugin.*` NATS subjects in real time.
+`focmd watch` — subscribe to `factorio.*`, `udp.>`, `factop.log`, and `plugin.*` NATS subjects in real time.
 
 ## Architecture
 
@@ -88,7 +90,7 @@ The service uses `github.com/mlctrez/bind` for dependency injection and componen
 2. **Factorio I/O** — stdout/stderr published to `factorio.stdout`/`factorio.stderr`, stdin writable via `factorio.stdin`
 3. **RCON** — detects startup marker on stdout, connects, serves requests on `factop.rcon`
 4. **Softmod** — receives zip on `factorio.softmod`, stops server, patches save, restarts
-5. **UDP Events** — Lua softmod emits game events via `helpers.send_udp`, UDPBridge publishes to `udp.incoming`, plugins subscribe via NATS
+5. **UDP Events** — Lua softmod emits game events via `helpers.send_udp`, UDPBridge publishes to `udp.incoming.<tag>`, plugins use `ctx.Events().On…`
 6. **Plugins** — auto-start after Factorio reaches Running state, health-checked every 30s, auto-restart on failure (3 attempts with backoff)
 
 ## Project Structure
@@ -98,10 +100,12 @@ The service uses `github.com/mlctrez/bind` for dependency injection and componen
 | `factop.go` | Service entry point |
 | `service/` | Core service components |
 | `softmod/` | Lua softmod source (injected into save) |
-| `client/` | Typed Go client packages for RCON commands |
-| `plugin/` | Plugin SDK for building external plugins |
-| `pluginexample/` | Example plugin (lab trail) |
+| `client/` | Event schemas (codegen source of truth) |
+| `gen/` | Generates Go parsers, Lua emitters, plugin `OnXxx` |
+| `plugin/` | Plugin SDK (events + RCON) |
+| `pluginexample/` | Example plugins (lab trail; RPG demo lives here too) |
 | `cmd/main.go` | CLI tool |
+| `docs/rpg.md` | Factorio RPG development path |
 | `apidoc/` | Factorio Lua API doc generator |
 | `protodump/` | Prototype name extractor for compile-time validation |
 

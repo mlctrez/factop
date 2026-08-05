@@ -1,5 +1,6 @@
 .idea/
 .vscode/
+.junie/
 .kiro/*
 !.kiro/steering/
 temp/

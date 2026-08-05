@@ -1,22 +1,16 @@
 package plugin
 
 import (
+	"context"
 	"log/slog"
 	"sync"
 
 	"github.com/mlctrez/factop/client"
-	"github.com/mlctrez/factop/client/entity"
-	"github.com/mlctrez/factop/client/game"
-	"github.com/mlctrez/factop/client/player"
-	"github.com/mlctrez/factop/client/playerattr"
-	"github.com/mlctrez/factop/client/resource"
-	"github.com/mlctrez/factop/client/surface"
-	"github.com/mlctrez/factop/client/tile"
 	"github.com/nats-io/nats.go"
 )
 
 // contextImpl implements Context. It wraps client.Conn, NATS conn,
-// data dir, logger, done channel, and lazily-initialized typed clients.
+// data dir, logger, done channel, and plugin name.
 type contextImpl struct {
 	conn       *client.Conn
 	nc         *nats.Conn
@@ -26,8 +20,10 @@ type contextImpl struct {
 	pluginName string
 	subs       []*nats.Subscription
 
-	clientsOnce sync.Once
-	clients     *clientsImpl
+	eventsOnce sync.Once
+	events     *EventRouter
+	goCtx      context.Context
+	cancel     context.CancelFunc
 }
 
 // Rcon delegates to the underlying client.Conn.
@@ -67,72 +63,15 @@ func (c *contextImpl) Done() <-chan struct{} {
 	return c.done
 }
 
-// Clients returns lazily-initialized typed client accessors.
-func (c *contextImpl) Clients() Clients {
-	c.clientsOnce.Do(func() {
-		c.clients = &clientsImpl{conn: c.conn}
+// Events returns the event router instance, lazily initialized on first call.
+func (c *contextImpl) Events() *EventRouter {
+	c.eventsOnce.Do(func() {
+		c.events = newEventRouter(c.nc, c.logger)
 	})
-	return c.clients
+	return c.events
 }
 
-// clientsImpl provides lazily-initialized typed client accessors.
-// Each client is constructed on first access and cached for subsequent calls.
-type clientsImpl struct {
-	conn *client.Conn
-
-	gameOnce   sync.Once
-	gameClient *game.Client
-
-	entityOnce   sync.Once
-	entityClient *entity.Client
-
-	tileOnce   sync.Once
-	tileClient *tile.Client
-
-	surfaceOnce   sync.Once
-	surfaceClient *surface.Client
-
-	resourceOnce   sync.Once
-	resourceClient *resource.Client
-
-	playerOnce   sync.Once
-	playerClient *player.Client
-
-	playerAttrOnce   sync.Once
-	playerAttrClient *playerattr.Client
-}
-
-func (c *clientsImpl) Game() *game.Client {
-	c.gameOnce.Do(func() { c.gameClient = game.New(c.conn) })
-	return c.gameClient
-}
-
-func (c *clientsImpl) Entity() *entity.Client {
-	c.entityOnce.Do(func() { c.entityClient = entity.New(c.conn) })
-	return c.entityClient
-}
-
-func (c *clientsImpl) Tile() *tile.Client {
-	c.tileOnce.Do(func() { c.tileClient = tile.New(c.conn) })
-	return c.tileClient
-}
-
-func (c *clientsImpl) Surface() *surface.Client {
-	c.surfaceOnce.Do(func() { c.surfaceClient = surface.New(c.conn) })
-	return c.surfaceClient
-}
-
-func (c *clientsImpl) Resource() *resource.Client {
-	c.resourceOnce.Do(func() { c.resourceClient = resource.New(c.conn) })
-	return c.resourceClient
-}
-
-func (c *clientsImpl) Player() *player.Client {
-	c.playerOnce.Do(func() { c.playerClient = player.New(c.conn) })
-	return c.playerClient
-}
-
-func (c *clientsImpl) PlayerAttr() *playerattr.Client {
-	c.playerAttrOnce.Do(func() { c.playerAttrClient = playerattr.New(c.conn) })
-	return c.playerAttrClient
+// Ctx returns a cancellable context for the plugin lifecycle.
+func (c *contextImpl) Ctx() context.Context {
+	return c.goCtx
 }

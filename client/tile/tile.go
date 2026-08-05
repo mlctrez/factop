@@ -1,136 +1,28 @@
-// Package tile provides a typed Go client for the tile manipulation commands
-// registered by softmod/factop/tile.lua.
 package tile
 
-import (
-	"fmt"
-	"strconv"
-	"strings"
-
-	"github.com/mlctrez/factop/client"
-)
-
-// Tile represents a single tile at a position.
-type Tile struct {
-	Name string `json:"name"`
-	X    int    `json:"x"`
-	Y    int    `json:"y"`
-}
-
-// Area defines a rectangular region in tile coordinates.
-type Area struct {
-	X1 int
-	Y1 int
-	X2 int
-	Y2 int
-}
-
-// String formats the area as the x1,y1,x2,y2 wire format.
-func (a Area) String() string {
-	return fmt.Sprintf("%d,%d,%d,%d", a.X1, a.Y1, a.X2, a.Y2)
-}
-
-// Client provides typed methods for each tile-* RCON command.
-type Client struct {
-	conn *client.Conn
-}
-
-// New creates a tiles Client using the given connection.
-func New(conn *client.Conn) *Client {
-	return &Client{conn: conn}
-}
-
-// Fill places a single tile type across the entire area.
-// Corresponds to: /tile-fill x1,y1,x2,y2 tileName [surface]
-func (c *Client) Fill(area Area, tileName string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tile-fill %s %s", area, tileName)
-	if surface != "" {
-		cmd += " " + surface
-	}
-	return c.conn.Rcon(cmd)
-}
-
-// Read returns the tiles in the given area, optionally filtered by name.
-// Corresponds to: /tile-read x1,y1,x2,y2 [filterName] [surface]
-func (c *Client) Read(area Area, filterName string, surface string) ([]Tile, error) {
-	cmd := fmt.Sprintf("/tile-read %s", area)
-	if filterName != "" {
-		cmd += " " + filterName
-	}
-	if surface != "" {
-		if filterName == "" {
-			// need a placeholder so surface lands in the right arg position
-			cmd += " \"\""
-		}
-		cmd += " " + surface
-	}
-	raw, err := c.conn.Rcon(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return Parse(raw)
-}
-
-// Remove restores hidden tiles in the area, optionally filtered by name.
-// Corresponds to: /tile-remove x1,y1,x2,y2 [filterName] [surface]
-func (c *Client) Remove(area Area, filterName string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tile-remove %s", area)
-	if filterName != "" {
-		cmd += " " + filterName
-	}
-	if surface != "" {
-		if filterName == "" {
-			cmd += " \"\""
-		}
-		cmd += " " + surface
-	}
-	return c.conn.Rcon(cmd)
-}
-
-// Replace swaps one tile type for another across the area.
-// Corresponds to: /tile-replace x1,y1,x2,y2 fromName toName [surface]
-func (c *Client) Replace(area Area, fromName, toName string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tile-replace %s %s %s", area, fromName, toName)
-	if surface != "" {
-		cmd += " " + surface
-	}
-	return c.conn.Rcon(cmd)
-}
-
-// Checkerboard fills the area with an alternating pattern of two tile types.
-// Corresponds to: /tile-checker x1,y1,x2,y2 tileA tileB [surface]
-func (c *Client) Checkerboard(area Area, tileA, tileB string, surface string) (string, error) {
-	cmd := fmt.Sprintf("/tile-checker %s %s %s", area, tileA, tileB)
-	if surface != "" {
-		cmd += " " + surface
-	}
-	return c.conn.Rcon(cmd)
-}
-
-// Parse converts the compact tile-read wire format into a slice of Tile.
-// The wire format is: name:x:y,name:x:y,...
-// An empty string returns nil, nil.
-func Parse(s string) ([]Tile, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil, nil
-	}
-	entries := strings.Split(s, ",")
-	tiles := make([]Tile, 0, len(entries))
-	for _, entry := range entries {
-		parts := strings.SplitN(entry, ":", 3)
-		if len(parts) != 3 {
-			return nil, fmt.Errorf("invalid tile entry %q: expected name:x:y", entry)
-		}
-		x, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return nil, fmt.Errorf("invalid x in %q: %w", entry, err)
-		}
-		y, err := strconv.Atoi(parts[2])
-		if err != nil {
-			return nil, fmt.Errorf("invalid y in %q: %w", entry, err)
-		}
-		tiles = append(tiles, Tile{Name: parts[0], X: x, Y: y})
-	}
-	return tiles, nil
+// gen:event tag=tile_built
+// gen:event tag=tile_mined
+// gen:lua event=on_player_built_tile:tile_built
+// gen:lua event=on_robot_built_tile:tile_built
+// gen:lua event=on_player_mined_tile:tile_mined
+// gen:lua event=on_robot_mined_tile:tile_mined
+// gen:lua tag=tile_built
+// gen:lua guard=game.surfaces[event.surface_index]
+// gen:lua iterate=event.tiles
+// gen:lua loop_var=tile
+// gen:lua field.Name=tile.old_tile.name
+// gen:lua field.X=tile.position.x
+// gen:lua field.Y=tile.position.y
+// gen:lua field.SurfaceName=surface.name
+// gen:lua field.SurfaceIndex=surface.index
+// gen:lua field.PlayerIndex=event.player_index
+// gen:lua default.PlayerIndex=0
+type TileEvent struct {
+	Event        string  `wire:"-,tag"`
+	Name         string  `wire:"0"`
+	X            float64 `wire:"1"`
+	Y            float64 `wire:"2"`
+	SurfaceName  string  `wire:"3"`
+	SurfaceIndex int     `wire:"4"`
+	PlayerIndex  int     `wire:"5"`
 }

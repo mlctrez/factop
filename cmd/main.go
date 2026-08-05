@@ -96,7 +96,7 @@ func Watch() (err error) {
 	}
 	defer conn.Close()
 
-	fmt.Println("watching factorio.*, udp.*, factop.log, plugin.* ...")
+	fmt.Println("watching factorio.*, udp.>, factop.log, plugin.* ...")
 	_, err = conn.Subscribe("factorio.*", func(msg *nats.Msg) {
 		data := string(msg.Data)
 		if msg.Subject == "factorio.softmod" {
@@ -108,8 +108,10 @@ func Watch() (err error) {
 		return err
 	}
 
-	_, err = conn.Subscribe("udp.*", func(msg *nats.Msg) {
-		fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
+	_, err = conn.Subscribe("udp.>", func(msg *nats.Msg) {
+		if msg.Subject != "udp.incoming.game_tick" {
+			fmt.Printf("[%s] %s\n", msg.Subject, string(msg.Data))
+		}
 	})
 	if err != nil {
 		return err

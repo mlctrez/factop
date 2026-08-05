@@ -17,19 +17,28 @@ func TestBuildControlLuaExcludesCommon(t *testing.T) {
 	}
 
 	expected := []string{
-		`add_lib("factop.entity")`,
-		`add_lib("factop.game")`,
-		`add_lib("factop.goal")`,
+		`add_lib("factop.entity_gen")`,
+		`add_lib("factop.game_gen")`,
 		`add_lib("factop.player")`,
-		`add_lib("factop.playerattr")`,
-		`add_lib("factop.resource")`,
-		`add_lib("factop.surface")`,
-		`add_lib("factop.tile")`,
+		`add_lib("factop.playerattr_gen")`,
+		`add_lib("factop.resource_gen")`,
+		`add_lib("factop.surface_gen")`,
+		`add_lib("factop.tile_gen")`,
 		`add_lib("factop.udp")`,
 	}
 	for _, e := range expected {
 		if !strings.Contains(content, e) {
 			t.Errorf("control.lua missing: %s", e)
+		}
+	}
+
+	// Ensure removed modules are not present
+	removed := []string{
+		`add_lib("factop.goal")`,
+	}
+	for _, r := range removed {
+		if strings.Contains(content, r) {
+			t.Errorf("control.lua should NOT contain removed module: %s", r)
 		}
 	}
 

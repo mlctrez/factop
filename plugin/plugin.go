@@ -3,6 +3,7 @@
 package plugin
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -13,13 +14,6 @@ import (
 	"time"
 
 	"github.com/mlctrez/factop/client"
-	"github.com/mlctrez/factop/client/entity"
-	"github.com/mlctrez/factop/client/game"
-	"github.com/mlctrez/factop/client/player"
-	"github.com/mlctrez/factop/client/playerattr"
-	"github.com/mlctrez/factop/client/resource"
-	"github.com/mlctrez/factop/client/surface"
-	"github.com/mlctrez/factop/client/tile"
 	"github.com/nats-io/nats.go"
 )
 
@@ -37,18 +31,8 @@ type Context interface {
 	DataDir() string
 	Logger() *slog.Logger
 	Done() <-chan struct{}
-	Clients() Clients
-}
-
-// Clients provides lazily-initialized typed client accessors.
-type Clients interface {
-	Game() *game.Client
-	Entity() *entity.Client
-	Tile() *tile.Client
-	Surface() *surface.Client
-	Resource() *resource.Client
-	Player() *player.Client
-	PlayerAttr() *playerattr.Client
+	Events() *EventRouter
+	Ctx() context.Context
 }
 
 // healthResponse is the JSON payload for health check responses.
@@ -114,6 +98,8 @@ func Run(impl Plugin) {
 		os.Exit(1)
 	}
 
+	goCtx, cancel := context.WithCancel(context.Background())
+
 	ctx := &contextImpl{
 		conn:       conn,
 		nc:         nc,
@@ -121,6 +107,8 @@ func Run(impl Plugin) {
 		logger:     logger,
 		done:       done,
 		pluginName: *pluginName,
+		goCtx:      goCtx,
+		cancel:     cancel,
 	}
 
 	// Handle SIGINT/SIGTERM.
@@ -129,6 +117,12 @@ func Run(impl Plugin) {
 	go func() {
 		<-sigCh
 		close(done)
+	}()
+
+	// Cancel the context when done is closed.
+	go func() {
+		<-done
+		cancel()
 	}()
 
 	// Setup phase.
@@ -147,6 +141,10 @@ func Run(impl Plugin) {
 	_ = healthSub.Drain()
 	for _, sub := range ctx.subs {
 		_ = sub.Drain()
+	}
+	// Drain event router subscriptions if it was initialized.
+	if ctx.events != nil {
+		ctx.events.Drain(5 * time.Second)
 	}
 	nc.Close()
 	conn.Close()

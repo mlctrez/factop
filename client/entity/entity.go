@@ -1,298 +1,36 @@
-// Package entity provides a typed Go client for the entity manipulation
-// commands registered by softmod/factop/entity.lua.
 package entity
 
-import (
-	"fmt"
-	"strconv"
-	"strings"
-
-	"github.com/mlctrez/factop/client"
-)
-
-// Entity represents a found entity with its position and unit number.
-type Entity struct {
-	Name       string  `json:"name"`
-	X          float64 `json:"x"`
-	Y          float64 `json:"y"`
-	UnitNumber uint64  `json:"unit_number"`
-}
-
-// Area defines a rectangular search region.
-type Area struct {
-	X1 float64
-	Y1 float64
-	X2 float64
-	Y2 float64
-}
-
-func (a Area) String() string {
-	return fmt.Sprintf("%g,%g,%g,%g", a.X1, a.Y1, a.X2, a.Y2)
-}
-
-// Position is a map coordinate.
-type Position struct {
-	X float64
-	Y float64
-}
-
-func (p Position) String() string {
-	return fmt.Sprintf("%g,%g", p.X, p.Y)
-}
-
-// FindOptions controls filtering for Find and Count operations.
-// Use "_" or empty string to skip a filter field.
-type FindOptions struct {
-	Name    string
-	Type    string
-	Force   string
-	Limit   int
-	Surface string
-}
-
-// Client provides typed methods for each entity-* RCON command.
-type Client struct {
-	conn *client.Conn
-}
-
-// New creates an entities Client using the given connection.
-func New(conn *client.Conn) *Client {
-	return &Client{conn: conn}
-}
-
-// Create places a single entity at the given position.
-// Direction uses Factorio direction names: "north", "south", "east", "west", etc.
-// Pass empty strings for force/direction/surface to use defaults.
-func (c *Client) Create(pos Position, name, force, direction, surface string) (string, error) {
-	cmd := fmt.Sprintf("/entity-create %s %s", pos, name)
-	if force != "" {
-		cmd += " " + force
-	}
-	if direction != "" {
-		if force == "" {
-			cmd += " player"
-		}
-		cmd += " " + direction
-	}
-	if surface != "" {
-		// pad missing optional args
-		if force == "" {
-			cmd += " player"
-		}
-		if direction == "" {
-			cmd += " _"
-		}
-		cmd += " " + surface
-	}
-	return c.conn.Rcon(cmd)
-}
-
-// maxPositionsPerBatch limits how many positions are sent in a single RCON call
-// to stay within the RCON payload size limit.
-const maxPositionsPerBatch = 200
-
-// Bulk creates multiple entities of the same type in batched RCON calls.
-// Positions are sent in batches to stay within RCON payload limits.
-// Returns total created count and any error from the last failing batch.
-func (c *Client) Bulk(positions []Position, name, force, surface string) (int, error) {
-	if force == "" {
-		force = "player"
-	}
-	total := 0
-	for i := 0; i < len(positions); i += maxPositionsPerBatch {
-		end := i + maxPositionsPerBatch
-		if end > len(positions) {
-			end = len(positions)
-		}
-		batch := positions[i:end]
-
-		var b strings.Builder
-		for j, p := range batch {
-			if j > 0 {
-				b.WriteByte(';')
-			}
-			fmt.Fprintf(&b, "%g,%g", p.X, p.Y)
-		}
-
-		cmd := fmt.Sprintf("/entity-bulk %s %s %s", name, force, b.String())
-		if surface != "" {
-			cmd += " " + surface
-		}
-		raw, err := c.conn.Rcon(cmd)
-		if err != nil {
-			return total, err
-		}
-		// Parse "Created N" or "Created N, failed M"
-		var created int
-		fmt.Sscanf(raw, "Created %d", &created)
-		total += created
-	}
-	return total, nil
-}
-
-// filterArg returns the value or "_" as a skip placeholder.
-func filterArg(s string) string {
-	if s == "" {
-		return "_"
-	}
-	return s
-}
-
-// Find returns entities matching the filter in the given area.
-func (c *Client) Find(area Area, opts FindOptions) ([]Entity, error) {
-	cmd := fmt.Sprintf("/entity-find %s %s %s %s",
-		area, filterArg(opts.Name), filterArg(opts.Type), filterArg(opts.Force))
-	if opts.Limit > 0 {
-		cmd += " " + strconv.Itoa(opts.Limit)
-	} else {
-		cmd += " _"
-	}
-	if opts.Surface != "" {
-		cmd += " " + opts.Surface
-	}
-	raw, err := c.conn.Rcon(cmd)
-	if err != nil {
-		return nil, err
-	}
-	return Parse(raw)
-}
-
-// Count returns the number of entities matching the filter in the area.
-func (c *Client) Count(area Area, opts FindOptions) (int, error) {
-	cmd := fmt.Sprintf("/entity-count %s %s %s %s",
-		area, filterArg(opts.Name), filterArg(opts.Type), filterArg(opts.Force))
-	if opts.Surface != "" {
-		cmd += " " + opts.Surface
-	}
-	raw, err := c.conn.Rcon(cmd)
-	if err != nil {
-		return 0, err
-	}
-	return strconv.Atoi(strings.TrimSpace(raw))
-}
-
-// Destroy removes entities matching the filter in the area.
-func (c *Client) Destroy(area Area, opts FindOptions) (string, error) {
-	cmd := fmt.Sprintf("/entity-destroy %s %s %s %s",
-		area, filterArg(opts.Name), filterArg(opts.Type), filterArg(opts.Force))
-	if opts.Limit > 0 {
-		cmd += " " + strconv.Itoa(opts.Limit)
-	} else {
-		cmd += " _"
-	}
-	if opts.Surface != "" {
-		cmd += " " + opts.Surface
-	}
-	return c.conn.Rcon(cmd)
-}
-
-// Parse converts the compact entity-find wire format into a slice of Entity.
-// Wire format: name:x:y:unit_number,name:x:y:unit_number,...
-func Parse(s string) ([]Entity, error) {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return nil, nil
-	}
-	entries := strings.Split(s, ",")
-	result := make([]Entity, 0, len(entries))
-	for _, entry := range entries {
-		parts := strings.SplitN(entry, ":", 4)
-		if len(parts) != 4 {
-			return nil, fmt.Errorf("invalid entity entry %q: expected name:x:y:unit_number", entry)
-		}
-		x, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid x in %q: %w", entry, err)
-		}
-		y, err := strconv.ParseFloat(parts[2], 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid y in %q: %w", entry, err)
-		}
-		un, err := strconv.ParseUint(parts[3], 10, 64)
-		if err != nil {
-			return nil, fmt.Errorf("invalid unit_number in %q: %w", entry, err)
-		}
-		result = append(result, Entity{Name: parts[0], X: x, Y: y, UnitNumber: un})
-	}
-	return result, nil
-}
-
-// EntityEvent represents a parsed entity lifecycle UDP message.
+// gen:event tag=entity_died
+// gen:event tag=entity_built
+// gen:event tag=entity_mined
+// gen:lua event=on_entity_died:entity_died
+// gen:lua event=on_built_entity:entity_built
+// gen:lua event=on_robot_built_entity:entity_built
+// gen:lua event=on_player_mined_entity:entity_mined
+// gen:lua event=on_robot_mined_entity:entity_mined
+// gen:lua tag=entity_died
+// gen:lua guard=event.entity
+// gen:lua guard=entity.surface
+// gen:lua field.Name=entity.name
+// gen:lua field.X=entity.position.x
+// gen:lua field.Y=entity.position.y
+// gen:lua field.UnitNumber=entity.unit_number
+// gen:lua field.SurfaceName=surface.name
+// gen:lua field.SurfaceIndex=surface.index
+// gen:lua field.PlayerIndex=event.player_index
+// gen:lua field.Cause=cause
+// gen:lua default.UnitNumber=0
+// gen:lua default.PlayerIndex=0
+// gen:lua default.Cause=""
+// gen:lua include_cause=entity_died
 type EntityEvent struct {
-	Event        string
-	Name         string
-	X            float64
-	Y            float64
-	UnitNumber   uint64
-	SurfaceName  string
-	SurfaceIndex int
-	PlayerIndex  int    // 0 means no player involved
-	Cause        string // only set for entity-died events
-}
-
-// ParseEntityEvent extracts entity event data from a UDP message.
-// Expected formats:
-//
-//	[entity-died] name:x:y:unit_number:surface_name:surface_index:player_index:cause
-//	[entity-built] name:x:y:unit_number:surface_name:surface_index:player_index
-//	[entity-mined] name:x:y:unit_number:surface_name:surface_index:player_index
-func ParseEntityEvent(msg string) (EntityEvent, error) {
-	// Extract event name from brackets.
-	if len(msg) < 2 || msg[0] != '[' {
-		return EntityEvent{}, fmt.Errorf("missing event tag")
-	}
-	close := strings.IndexByte(msg, ']')
-	if close < 0 {
-		return EntityEvent{}, fmt.Errorf("missing closing bracket")
-	}
-	event := msg[1:close]
-
-	// The colon-separated payload is the last whitespace-delimited token.
-	fields := strings.Fields(msg)
-	if len(fields) < 2 {
-		return EntityEvent{}, fmt.Errorf("message too short")
-	}
-	payload := fields[len(fields)-1]
-	parts := strings.Split(payload, ":")
-
-	// entity-died has 8 fields (includes cause), others have 7.
-	if len(parts) != 7 && len(parts) != 8 {
-		return EntityEvent{}, fmt.Errorf("expected 7 or 8 colon-separated fields, got %d", len(parts))
-	}
-
-	x, err := strconv.ParseFloat(parts[1], 64)
-	if err != nil {
-		return EntityEvent{}, fmt.Errorf("parse x: %w", err)
-	}
-	y, err := strconv.ParseFloat(parts[2], 64)
-	if err != nil {
-		return EntityEvent{}, fmt.Errorf("parse y: %w", err)
-	}
-	un, err := strconv.ParseUint(parts[3], 10, 64)
-	if err != nil {
-		return EntityEvent{}, fmt.Errorf("parse unit_number: %w", err)
-	}
-	si, err := strconv.Atoi(parts[5])
-	if err != nil {
-		return EntityEvent{}, fmt.Errorf("parse surface index: %w", err)
-	}
-	pi, err := strconv.Atoi(parts[6])
-	if err != nil {
-		return EntityEvent{}, fmt.Errorf("parse player index: %w", err)
-	}
-
-	ev := EntityEvent{
-		Event:        event,
-		Name:         parts[0],
-		X:            x,
-		Y:            y,
-		UnitNumber:   un,
-		SurfaceName:  parts[4],
-		SurfaceIndex: si,
-		PlayerIndex:  pi,
-	}
-	if len(parts) == 8 {
-		ev.Cause = parts[7]
-	}
-	return ev, nil
+	Event        string  `wire:"-,tag"`
+	Name         string  `wire:"0"`
+	X            float64 `wire:"1"`
+	Y            float64 `wire:"2"`
+	UnitNumber   uint64  `wire:"3"`
+	SurfaceName  string  `wire:"4"`
+	SurfaceIndex int     `wire:"5"`
+	PlayerIndex  int     `wire:"6"`
+	Cause        string  `wire:"7,optional"`
 }

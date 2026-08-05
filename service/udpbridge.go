@@ -1,11 +1,13 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"strings"
 
 	"github.com/mlctrez/bind"
 	"github.com/nats-io/nats.go"
@@ -22,6 +24,7 @@ type UDPBridge struct {
 	Settings     *Settings
 	incomingConn *net.UDPConn
 	outgoingAddr *net.UDPAddr
+	outgoingConn *net.UDPConn
 }
 
 func (u *UDPBridge) Startup() error {
@@ -40,9 +43,14 @@ func (u *UDPBridge) Startup() error {
 		return fmt.Errorf("failed to resolve outgoing UDP address: %w", err)
 	}
 
+	u.outgoingConn, err = net.DialUDP("udp4", nil, u.outgoingAddr)
+	if err != nil {
+		return fmt.Errorf("outgoing UDP connection: %w", err)
+	}
+
 	go u.handleIncoming()
 
-	if err = u.Nats.Subscribe("udp.outgoing", u.handleOutgoing); err != nil {
+	if err = u.Nats.Subscribe("udp.outgoing.>", u.handleOutgoing); err != nil {
 		return fmt.Errorf("failed to subscribe to udp.outgoing: %w", err)
 	}
 
@@ -51,33 +59,39 @@ func (u *UDPBridge) Startup() error {
 
 func (u *UDPBridge) Shutdown() error {
 	u.close(u.incomingConn)
+	u.close(u.outgoingConn)
 	return nil
 }
 
 func (u *UDPBridge) handleIncoming() {
-	incomingBuffer := make([]byte, 65535) // Max UDP packet size
+	buf := make([]byte, 65535)
 	for {
 		select {
 		case <-u.Context.Done():
 			return
 		default:
-			n, _, err := u.incomingConn.ReadFromUDP(incomingBuffer)
-			if err != nil {
-				// Check if we're shutting down
-				select {
-				case <-u.Context.Done():
-					return
-				default:
-					u.Error("Error reading from UDP", "error", err)
-					continue
-				}
-			}
-
-			msg := nats.NewMsg("udp.incoming")
-			msg.Data = make([]byte, n)
-			copy(msg.Data, incomingBuffer[:n])
-			u.Nats.PublishMsg(msg)
 		}
+
+		n, _, err := u.incomingConn.ReadFromUDP(buf)
+		if err != nil {
+			select {
+			case <-u.Context.Done():
+				return
+			default:
+				u.Error("error reading UDP", "error", err)
+				continue
+			}
+		}
+
+		data := make([]byte, n)
+		copy(data, buf[:n])
+
+		tag := extractTag(data)
+		subject := "udp.incoming." + tag
+
+		msg := nats.NewMsg(subject)
+		msg.Data = data
+		u.Nats.PublishMsg(msg)
 	}
 }
 
@@ -88,19 +102,21 @@ func (u *UDPBridge) close(c io.Closer) {
 }
 
 func (u *UDPBridge) handleOutgoing(msg *nats.Msg) {
-	if u.outgoingAddr == nil {
-		u.Error("outgoing UDP address not configured")
-		return
+	if _, err := u.outgoingConn.Write(msg.Data); err != nil {
+		u.Error("failed to send UDP", "error", err)
 	}
+}
 
-	conn, err := net.DialUDP("udp", nil, u.outgoingAddr)
-	if err != nil {
-		u.Error("failed to create outgoing UDP connection", "error", err)
-		return
+// extractTag reads the content between the first [ and ] in the message.
+// Returns "unknown" if no valid tag is found.
+func extractTag(data []byte) string {
+	if len(data) < 3 || data[0] != '[' {
+		return "unknown"
 	}
-	defer u.close(conn)
-
-	if _, err = conn.Write(msg.Data); err != nil {
-		u.Error("failed to send UDP packet", "error", err)
+	end := bytes.IndexByte(data, ']')
+	if end < 2 {
+		return "unknown"
 	}
+	tag := string(data[1:end])
+	return strings.ToLower(tag)
 }

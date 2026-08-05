@@ -4,25 +4,6 @@
 
 local common = {}
 
---- Returns true if the command was invoked via RCON (player_index is nil).
--- Rejects in-game player invocations with a message.
-function common.rcon_only(cmd)
-    if cmd.player_index ~= nil then
-        game.players[cmd.player_index].print("This command is only available via RCON")
-        return false
-    end
-    return true
-end
-
---- Print result to rcon if available, otherwise game.print.
-function common.reply(msg)
-    if rcon and rcon.print then
-        rcon.print(msg)
-    else
-        game.print(msg)
-    end
-end
-
 --- Get a surface by name, defaulting to nauvis.
 function common.get_surface(name)
     if name and name ~= "" then
@@ -54,15 +35,6 @@ function common.parse_position(s)
     local px, py = s:match("^([%-]?%d+%.?%d*),([%-]?%d+%.?%d*)$")
     if not px then return nil end
     return { x = tonumber(px), y = tonumber(py) }
-end
-
---- Parse command arguments from cmd.parameter into an array.
-function common.parse_args(cmd)
-    local args = {}
-    if cmd.parameter then
-        for w in cmd.parameter:gmatch("%S+") do args[#args + 1] = w end
-    end
-    return args
 end
 
 return common

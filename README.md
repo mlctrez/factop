@@ -45,6 +45,7 @@ All commands use NATS request/reply. The CLI in `cmd/main.go` wraps them.
 | `focmd rcon -` | Execute Lua read from stdin (also used when stdin is piped and no path is given) |
 | `focmd prcon <delay> <path>` | Execute Lua file on a repeating timer |
 | `focmd lrcon <path>` | Execute via local NATS (localhost) |
+| `focmd console <cmd...>` | Send a plain console command such as `/players`, `/version`, `/admins`, `/time` verbatim (no Lua wrapping); returns all output lines |
 
 ### Softmod
 
@@ -90,7 +91,7 @@ The service uses `github.com/mlctrez/bind` for dependency injection and componen
 
 1. **Command & Control** — CLI sends NATS request → service component processes → reply returned
 2. **Factorio I/O** — stdout/stderr published to `factorio.stdout`/`factorio.stderr`, stdin writable via `factorio.stdin`
-3. **RCON** — detects startup marker on stdout, connects, serves requests on `factop.rcon`
+3. **RCON** — detects startup marker on stdout, connects, serves requests on `factop.rcon` (verbatim, last output line) and `factop.rcon.console` (single `/` console command, all output lines)
 4. **Softmod** — receives zip on `factorio.softmod`, stops server, patches save, restarts
 5. **UDP Events** — Lua softmod emits game events via `helpers.send_udp`, UDPBridge publishes to `udp.incoming.<tag>`, plugins use `ctx.Events().On…`
 6. **Plugins** — auto-start after Factorio reaches Running state, health-checked every 30s, auto-restart on failure (3 attempts with backoff)

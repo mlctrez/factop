@@ -80,3 +80,33 @@ func TestRconPayload(t *testing.T) {
 		})
 	}
 }
+
+func TestConsoleCommand(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		want    string
+		wantErr string
+	}{
+		{name: "single", args: []string{"/players"}, want: "/players"},
+		{name: "time", args: []string{"/time"}, want: "/time"},
+		{name: "multiple args joined", args: []string{"/admins", "list"}, want: "/admins list"},
+		{name: "quoted single arg", args: []string{" /version "}, want: "/version"},
+		{name: "no args", wantErr: "usage: console"},
+		{name: "blank", args: []string{" "}, wantErr: "usage: console"},
+		{name: "chat text rejected", args: []string{"hello"}, wantErr: "must start with /"},
+		{name: "multi-line rejected", args: []string{"/players\n/version"}, wantErr: "single line"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := consoleCommand(tc.args)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

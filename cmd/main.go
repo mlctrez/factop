@@ -49,6 +49,8 @@ func main() {
 		err = Rcon()
 	case "lrcon":
 		err = LRcon()
+	case "console":
+		err = Console()
 	case "plugin":
 		err = Plugin()
 	default:
@@ -74,6 +76,7 @@ func printUsage() {
 	fmt.Println("  rcon -            - Send Lua read from stdin (also used when stdin is piped and no path is given)")
 	fmt.Println("  rcon -e <lua...>  - Send inline Lua; remaining args are joined with spaces")
 	fmt.Println("  lrcon <path>      - Send RCON command to local RCON via NATS")
+	fmt.Println("  console <cmd...>  - Send a plain console command (e.g. /players) via RCON, no Lua wrapping")
 	fmt.Println("  plugin <sub> ...  - Manage plugins (register, unregister, start, stop, restart, status, deploy, rollback, versions, version-remove, list)")
 }
 
@@ -323,6 +326,48 @@ func sendRcon(src []byte) (err error) {
 	}
 	defer conn.Close()
 	return sendMessage(conn, "factop.rcon", rconPayload(src))
+}
+
+// consoleSubject must match service.ConsoleSubject.
+const consoleSubject = "factop.rcon.console"
+
+// Console sends a plain Factorio console command such as "/players" through
+// RCON without the /sc Lua wrapping used by the rcon command.
+func Console() (err error) {
+	var command string
+	if command, err = consoleCommand(os.Args[2:]); err != nil {
+		return err
+	}
+	var conn *nats.Conn
+	if conn, err = nats.Connect(fmt.Sprintf("nats://%s", Host)); err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	err = sendMessage(conn, consoleSubject, []byte(command))
+	if errors.Is(err, nats.ErrNoResponders) {
+		// Older factop without the console subject: factop.rcon also forwards
+		// verbatim but only returns the last output line.
+		fmt.Fprintln(os.Stderr, "warning: factop has no", consoleSubject, "handler; falling back to factop.rcon (only the last output line is returned)")
+		err = sendMessage(conn, "factop.rcon", []byte(command))
+	}
+	return err
+}
+
+// consoleCommand joins the console arguments into a single command line.
+// The command must start with "/" so plain text is never sent as chat.
+func consoleCommand(args []string) (string, error) {
+	command := strings.TrimSpace(strings.Join(args, " "))
+	if command == "" {
+		return "", errors.New("usage: console <command...>, e.g. console /players")
+	}
+	if strings.ContainsAny(command, "\r\n") {
+		return "", errors.New("console command must be a single line")
+	}
+	if !strings.HasPrefix(command, "/") {
+		return "", fmt.Errorf("console command must start with / (got %q); plain text would be sent as chat", command)
+	}
+	return command, nil
 }
 
 func LRcon() (err error) {

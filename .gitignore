@@ -4,3 +4,17 @@
 .kiro/*
 !.kiro/steering/
 temp/
+
+# Built binaries. `go build` on Linux writes these with no extension.
+# Root names are what `go build ./pluginexample/<name>` (or `-o`) drops here.
+# The nested names are what `go build` writes inside each main package.
+/factop
+/focmd
+/merlin
+/pluginone
+/rpgdemo
+/pluginexample/merlin/merlin
+/pluginexample/pluginone/pluginone
+/pluginexample/rpgdemo/rpgdemo
+*.exe
+*.test

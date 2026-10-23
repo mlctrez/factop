@@ -2,10 +2,11 @@ package service
 
 import (
 	"errors"
-	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
+
+	"github.com/mlctrez/factop/console"
 	"sync"
 
 	"github.com/mlctrez/bind"
@@ -49,7 +50,8 @@ var IgnorePattern = regexp.MustCompile(`(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[
 // ConsoleSubject receives plain Factorio console commands (e.g. "/server-save")
 // that are forwarded to RCON verbatim. Unlike factop.rcon, every non-console
 // output line is returned, joined with newlines. It is meant for manual admin
-// and maintenance commands; plugins and scripts that need game data should use
+// and maintenance commands that have no Lua equivalent (see console.Allowed);
+// everything else is rejected. Plugins and scripts that need game data should use
 // factop.rcon with "/sc" Lua and return JSON via helpers.table_to_json.
 const ConsoleSubject = "factop.rcon.console"
 
@@ -86,19 +88,10 @@ func (r *Rcon) handleConsole(msg *nats.Msg) {
 }
 
 // ConsoleCommand validates and normalizes a plain console command. It must be
-// a single line starting with "/" so that plain text is never broadcast to
-// players as a chat message.
+// a single line starting with "/" and name a command in console.Allowed, the
+// commands with no Lua equivalent.
 func ConsoleCommand(raw string) (string, error) {
-	command := strings.TrimSpace(raw)
-	switch {
-	case command == "":
-		return "", errors.New("console command is empty")
-	case strings.ContainsAny(command, "\r\n"):
-		return "", errors.New("console command must be a single line")
-	case !strings.HasPrefix(command, "/"):
-		return "", fmt.Errorf("console command must start with / (got %q); plain text would be sent as chat", command)
-	}
-	return command, nil
+	return console.Validate(raw)
 }
 
 // execute sends command over the RCON connection.

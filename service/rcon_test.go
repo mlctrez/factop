@@ -107,12 +107,16 @@ func newTestRcon(t *testing.T, fake *fakeRconServer) *nats.Conn {
 
 const playersOutput = "Players (2):\n  alice (online)\n2026-10-23 12:00:00 [JOIN] bob joined the game\n  bob (online)\n"
 
+const whitelistOutput = "Whitelisted players (2):\n  alice\n2026-10-23 12:00:00 [JOIN] bob joined the game\n  bob\n"
+
 func fakeFactorioResponse(command string) string {
 	switch command {
 	case "/players":
 		return playersOutput
-	case "/version":
-		return "2.0.76"
+	case "/whitelist get":
+		return whitelistOutput
+	case "/bans":
+		return "There are no banned players."
 	case "/sc rcon.print(game.tick)":
 		return "12345\n"
 	default:
@@ -131,22 +135,22 @@ func TestRconConsoleForwardsVerbatimAndReturnsAllLines(t *testing.T) {
 	fake := newFakeRconServer(t, fakeFactorioResponse)
 	nc := newTestRcon(t, fake)
 
-	data, errHdr := request(t, nc, ConsoleSubject, "/players\n")
+	data, errHdr := request(t, nc, ConsoleSubject, "/whitelist get\n")
 	assert.Empty(t, errHdr)
-	assert.Equal(t, "Players (2):\n  alice (online)\n  bob (online)", data, "all lines except console messages")
+	assert.Equal(t, "Whitelisted players (2):\n  alice\n  bob", data, "all lines except console messages")
 
-	data, errHdr = request(t, nc, ConsoleSubject, "  /version  ")
+	data, errHdr = request(t, nc, ConsoleSubject, "  /bans  ")
 	assert.Empty(t, errHdr)
-	assert.Equal(t, "2.0.76", data)
+	assert.Equal(t, "There are no banned players.", data)
 
-	assert.Equal(t, []string{"/players", "/version"}, fake.commands(), "sent verbatim with no Lua wrapping")
+	assert.Equal(t, []string{"/whitelist get", "/bans"}, fake.commands(), "sent verbatim with no Lua wrapping")
 }
 
 func TestRconConsoleRejectsInvalidCommands(t *testing.T) {
 	fake := newFakeRconServer(t, fakeFactorioResponse)
 	nc := newTestRcon(t, fake)
 
-	for _, bad := range []string{"", "   ", "hello everyone", "/players\n/version"} {
+	for _, bad := range []string{"", "   ", "hello everyone", "/bans\n/mutes", "/players", "/server-save", "/kick bob", "/sc rcon.print(1)", "/c game.print(1)"} {
 		_, errHdr := request(t, nc, ConsoleSubject, bad)
 		assert.NotEmpty(t, errHdr, "input %q should be rejected", bad)
 	}
@@ -155,7 +159,7 @@ func TestRconConsoleRejectsInvalidCommands(t *testing.T) {
 
 func TestRconConsoleNotConnected(t *testing.T) {
 	nc := newTestRcon(t, nil)
-	_, errHdr := request(t, nc, ConsoleSubject, "/players")
+	_, errHdr := request(t, nc, ConsoleSubject, "/bans")
 	assert.Equal(t, "rcon not connected", errHdr)
 }
 
@@ -176,28 +180,15 @@ func TestRconHandleUnchanged(t *testing.T) {
 }
 
 func TestConsoleCommand(t *testing.T) {
-	cases := []struct {
-		in, want, wantErr string
-	}{
-		{in: "/players", want: "/players"},
-		{in: " /time \n", want: "/time"},
-		{in: "/sc rcon.print(1)", want: "/sc rcon.print(1)"},
-		{in: "", wantErr: "empty"},
-		{in: "\n", wantErr: "empty"},
-		{in: "players", wantErr: "must start with /"},
-		{in: "/a\n/b", wantErr: "single line"},
-		{in: "/a\r/b", wantErr: "single line"},
-	}
-	for _, tc := range cases {
-		got, err := ConsoleCommand(tc.in)
-		if tc.wantErr != "" {
-			require.Error(t, err, "input %q", tc.in)
-			assert.Contains(t, err.Error(), tc.wantErr)
-			continue
-		}
-		require.NoError(t, err)
-		assert.Equal(t, tc.want, got)
-	}
+	// Full validation cases live in the console package; this checks the
+	// service uses it.
+	got, err := ConsoleCommand(" /whitelist get \n")
+	require.NoError(t, err)
+	assert.Equal(t, "/whitelist get", got)
+
+	_, err = ConsoleCommand("/players")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not allowed")
 }
 
 func TestRconFilterOutput(t *testing.T) {

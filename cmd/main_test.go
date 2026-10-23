@@ -88,16 +88,17 @@ func TestConsoleCommand(t *testing.T) {
 		want    string
 		wantErr string
 	}{
-		{name: "single", args: []string{"/players"}, want: "/players"},
-		{name: "server save", args: []string{"/server-save"}, want: "/server-save"},
-		{name: "kick with reason", args: []string{"/kick", "bob", "griefing"}, want: "/kick bob griefing"},
-		{name: "time", args: []string{"/time"}, want: "/time"},
-		{name: "multiple args joined", args: []string{"/admins", "list"}, want: "/admins list"},
-		{name: "quoted single arg", args: []string{" /version "}, want: "/version"},
+		{name: "single", args: []string{"/bans"}, want: "/bans"},
+		{name: "whitelist get", args: []string{"/whitelist", "get"}, want: "/whitelist get"},
+		{name: "config set joined", args: []string{"/config", "set", "max-players", "10"}, want: "/config set max-players 10"},
+		{name: "quoted single arg", args: []string{" /mutes "}, want: "/mutes"},
+		{name: "lua-capable command rejected", args: []string{"/server-save"}, wantErr: "not allowed"},
+		{name: "kick rejected", args: []string{"/kick", "bob", "griefing"}, wantErr: "not allowed"},
+		{name: "players rejected", args: []string{"/players"}, wantErr: "not allowed"},
 		{name: "no args", wantErr: "usage: console"},
 		{name: "blank", args: []string{" "}, wantErr: "usage: console"},
 		{name: "chat text rejected", args: []string{"hello"}, wantErr: "must start with /"},
-		{name: "multi-line rejected", args: []string{"/players\n/version"}, wantErr: "single line"},
+		{name: "multi-line rejected", args: []string{"/bans\n/mutes"}, wantErr: "single line"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

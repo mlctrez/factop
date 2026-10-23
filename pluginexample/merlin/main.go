@@ -148,14 +148,57 @@ func (m *merlin) persist() {
 }
 
 // Distance thresholds for companion walking behavior (tiles).
+//
+// followStartDist and followStopDist form a hysteresis band: an idle companion
+// only starts walking once the player is more than followStartDist away, and a
+// walking companion keeps walking until it is within followStopDist. Between
+// the two, an idle companion stays put, so small player movements don't make
+// Merlin twitch back and forth.
 const (
-	followStartDist  = 5  // start walking toward player
-	followStopDist   = 2  // stop walking when close enough
+	followStartDist  = 5  // idle companion starts walking when farther than this
+	followStopDist   = 2  // walking companion stops when closer than this
 	followGiveUpDist = 30 // stop walking if too far (e.g. train travel)
 )
 
+// followAction is the decision made for a companion on a player move event.
+type followAction int
+
+const (
+	followStop followAction = iota // set walking_state={walking=false}
+	followHold                     // leave walking_state unchanged (idle stays idle)
+	followWalk                     // walk toward the target
+)
+
+func (a followAction) String() string {
+	switch a {
+	case followStop:
+		return "stop"
+	case followHold:
+		return "hold"
+	case followWalk:
+		return "walk"
+	}
+	return fmt.Sprintf("followAction(%d)", int(a))
+}
+
+// followDecision is the follow logic in pure form. dist is the distance in
+// tiles from the companion to the target and walking says whether the
+// companion is already walking. buildFollowCmd emits the same logic as Lua,
+// because the companion's position and walking state are only known in-game.
+func followDecision(dist float64, walking bool) followAction {
+	if dist > followGiveUpDist || dist < followStopDist {
+		return followStop
+	}
+	if !walking && dist <= followStartDist {
+		return followHold
+	}
+	return followWalk
+}
+
 // buildFollowCmd returns an RCON command that makes the companion walk toward
-// the given target position using walking_state, or stop if close enough / too far.
+// the given target position using walking_state, following followDecision:
+// stop if close enough or too far, stay idle if idle and within
+// followStartDist, otherwise walk (or keep walking) toward the target.
 // Returns ("", false) if the player has no companion mapping.
 func buildFollowCmd(companions map[int]CompanionEntry, mv player.Move) (string, bool) {
 	entry, ok := companions[mv.Index]
@@ -164,8 +207,8 @@ func buildFollowCmd(companions map[int]CompanionEntry, mv player.Move) (string, 
 	}
 	// Uses the move event coordinates as the target. The distance check runs
 	// against this fixed point so Merlin stops when reaching it.
-	cmd := fmt.Sprintf(`/sc local e=game.get_entity_by_unit_number(%d); if not (e and e.valid) then return end; local dx=%g-e.position.x; local dy=%g-e.position.y; local dist=math.sqrt(dx*dx+dy*dy); if dist>%d or dist<%d then e.walking_state={walking=false}; return end; local a=math.atan2(dx,0-dy); if a<0 then a=a+2*math.pi end; local i=math.floor(a/(math.pi/4)+0.5)%%8; local dirs={[0]=defines.direction.north,defines.direction.northeast,defines.direction.east,defines.direction.southeast,defines.direction.south,defines.direction.southwest,defines.direction.west,defines.direction.northwest}; e.walking_state={walking=true,direction=dirs[i]}`,
-		entry.UnitNumber, mv.X, mv.Y, followGiveUpDist, followStopDist,
+	cmd := fmt.Sprintf(`/sc local e=game.get_entity_by_unit_number(%d); if not (e and e.valid) then return end; local dx=%g-e.position.x; local dy=%g-e.position.y; local dist=math.sqrt(dx*dx+dy*dy); if dist>%d or dist<%d then e.walking_state={walking=false}; return end; if dist<=%d and not e.walking_state.walking then return end; local a=math.atan2(dx,0-dy); if a<0 then a=a+2*math.pi end; local i=math.floor(a/(math.pi/4)+0.5)%%8; local dirs={[0]=defines.direction.north,defines.direction.northeast,defines.direction.east,defines.direction.southeast,defines.direction.south,defines.direction.southwest,defines.direction.west,defines.direction.northwest}; e.walking_state={walking=true,direction=dirs[i]}`,
+		entry.UnitNumber, mv.X, mv.Y, followGiveUpDist, followStopDist, followStartDist,
 	)
 	return cmd, true
 }
@@ -181,20 +224,20 @@ func buildStopCmd(unitNumber int, targetX, targetY float64) string {
 func (m *merlin) onMove(mv player.Move) {
 	m.mu.Lock()
 	cmd, ok := buildFollowCmd(m.companions, mv)
-	var entry CompanionEntry
-	if ok {
-		entry = m.companions[mv.Index]
-	}
 	// Cancel any previous stop-polling goroutine for this player.
 	if cancel, exists := m.stopFns[mv.Index]; exists {
 		cancel()
+		delete(m.stopFns, mv.Index)
 	}
+	if !ok {
+		// No companion for this player: don't track a stop poller.
+		m.mu.Unlock()
+		return
+	}
+	entry := m.companions[mv.Index]
 	ctx, cancel := context.WithCancel(context.Background())
 	m.stopFns[mv.Index] = cancel
 	m.mu.Unlock()
-	if !ok {
-		return
-	}
 	if _, err := m.ctx.Rcon(cmd); err != nil {
 		m.log.Error("follow walk failed", "player", mv.Name, "error", err)
 		return

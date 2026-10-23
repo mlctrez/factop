@@ -114,10 +114,41 @@ local function on_entity_died(event)
     end
 end
 
+-- Stop distance (tiles) for the companion stop check. Keep in sync with
+-- followStopDist in pluginexample/merlin/main.go.
+local COMPANION_STOP_DIST = 2
+
+-- Stop companion walking when within COMPANION_STOP_DIST tiles of its owner.
+-- Runs every 10 ticks (~6/sec) to catch overshoot that the merlin plugin can't
+-- prevent: move events only fire every ~2 tiles of player movement and the
+-- plugin only polls for a stop for ~2 seconds after each move event.
+-- Restored from the softmod deployed on Aug 6 (2.0.77 autosaves).
+local function on_companion_tick()
+    if not storage.companions then return end
+    for player_index, companion in pairs(storage.companions) do
+        local entity = game.get_entity_by_unit_number(companion.unit_number)
+        if entity and entity.valid and entity.walking_state.walking then
+            local player = game.get_player(player_index)
+            if player and player.valid and player.character
+                and player.physical_surface_index == entity.surface_index then
+                local pos = player.physical_position
+                local dx = pos.x - entity.position.x
+                local dy = pos.y - entity.position.y
+                if dx * dx + dy * dy <= COMPANION_STOP_DIST * COMPANION_STOP_DIST then
+                    entity.walking_state = { walking = false }
+                end
+            end
+        end
+    end
+end
+
 companion_mod.on_init = register_commands
 companion_mod.on_load = register_commands
 companion_mod.events = {
     [defines.events.on_entity_died] = on_entity_died,
+}
+companion_mod.on_nth_tick = {
+    [10] = on_companion_tick,
 }
 
 return companion_mod

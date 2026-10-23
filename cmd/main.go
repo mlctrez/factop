@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -69,7 +70,9 @@ func printUsage() {
 	fmt.Println("  softmod           - Deploy the softmod zip")
 	fmt.Println("  command <args...> - Send a command to factop.command")
 	fmt.Println("  prcon <delay> <p> - Periodically send RCON command from file")
-	fmt.Println("  rcon <path>       - Send RCON command from file")
+	fmt.Println("  rcon <path>       - Send Lua from file via RCON (/sc)")
+	fmt.Println("  rcon -            - Send Lua read from stdin (also used when stdin is piped and no path is given)")
+	fmt.Println("  rcon -e <lua...>  - Send inline Lua; remaining args are joined with spaces")
 	fmt.Println("  lrcon <path>      - Send RCON command to local RCON via NATS")
 	fmt.Println("  plugin <sub> ...  - Manage plugins (register, unregister, start, stop, restart, status, deploy, rollback, versions, version-remove, list)")
 }
@@ -229,25 +232,72 @@ func PRcon() (err error) {
 	return nil
 }
 
+const rconUsage = "usage: rcon <path> | rcon - | rcon -e <lua...> (or pipe Lua to stdin with no args)"
+
 func Rcon() (err error) {
-	if len(os.Args) < 3 {
-		return errors.New("usage: rcon <path>")
+	var src []byte
+	if src, err = resolveRconSource(os.Args[2:], os.Stdin, stdinPiped()); err != nil {
+		return err
 	}
-	return runRcon(os.Args[2])
+	return sendRcon(src)
 }
 
-func runRcon(path string) (err error) {
-	var conn *nats.Conn
-	if conn, err = nats.Connect(fmt.Sprintf("nats://%s", Host)); err != nil {
-		return err
+// stdinPiped reports whether stdin is a pipe or file rather than a terminal.
+func stdinPiped() bool {
+	fi, err := os.Stdin.Stat()
+	if err != nil {
+		return false
 	}
-	defer conn.Close()
+	return fi.Mode()&os.ModeCharDevice == 0
+}
 
-	var file []byte
-	if file, err = os.ReadFile(path); err != nil {
-		return err
+// resolveRconSource determines where the Lua for "focmd rcon" comes from:
+//
+//	rcon <path>       read the file at path (original behavior)
+//	rcon -            read stdin
+//	rcon -e <lua...>  inline Lua, remaining args joined with spaces
+//	rcon              read stdin when it is piped, otherwise a usage error
+func resolveRconSource(args []string, stdin io.Reader, piped bool) ([]byte, error) {
+	switch {
+	case len(args) == 0:
+		if !piped {
+			return nil, errors.New(rconUsage)
+		}
+		return readRconStdin(stdin)
+	case args[0] == "-e":
+		if len(args) < 2 {
+			return nil, errors.New("rcon -e requires inline Lua, e.g. rcon -e 'rcon.print(game.tick)'")
+		}
+		inline := strings.Join(args[1:], " ")
+		if strings.TrimSpace(inline) == "" {
+			return nil, errors.New("rcon -e: inline Lua is empty")
+		}
+		return []byte(inline), nil
+	case len(args) > 1:
+		return nil, errors.New(rconUsage)
+	case args[0] == "-":
+		return readRconStdin(stdin)
+	default:
+		return os.ReadFile(args[0])
 	}
-	scanner := bufio.NewScanner(bytes.NewReader(file))
+}
+
+func readRconStdin(stdin io.Reader) ([]byte, error) {
+	src, err := io.ReadAll(stdin)
+	if err != nil {
+		return nil, fmt.Errorf("reading stdin: %w", err)
+	}
+	if len(bytes.TrimSpace(src)) == 0 {
+		return nil, errors.New("rcon: no Lua received on stdin")
+	}
+	return src, nil
+}
+
+// rconPayload converts Lua source into the /sc command sent to factop.rcon.
+// Blank lines and lines starting with "--" are dropped and the remaining
+// lines are trimmed.
+func rconPayload(src []byte) []byte {
+	scanner := bufio.NewScanner(bytes.NewReader(src))
 	var lines []string
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
@@ -255,8 +305,24 @@ func runRcon(path string) (err error) {
 			lines = append(lines, line)
 		}
 	}
+	return []byte("/sc " + strings.Join(lines, "\n"))
+}
 
-	return sendMessage(conn, "factop.rcon", []byte("/sc "+strings.Join(lines, "\n")))
+func runRcon(path string) (err error) {
+	var src []byte
+	if src, err = os.ReadFile(path); err != nil {
+		return err
+	}
+	return sendRcon(src)
+}
+
+func sendRcon(src []byte) (err error) {
+	var conn *nats.Conn
+	if conn, err = nats.Connect(fmt.Sprintf("nats://%s", Host)); err != nil {
+		return err
+	}
+	defer conn.Close()
+	return sendMessage(conn, "factop.rcon", rconPayload(src))
 }
 
 func LRcon() (err error) {

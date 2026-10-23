@@ -41,6 +41,8 @@ All commands use NATS request/reply. The CLI in `cmd/main.go` wraps them.
 | Command | Description |
 |---------|-------------|
 | `focmd rcon <path>` | Execute Lua file via RCON |
+| `focmd rcon -e '<lua>'` | Execute inline Lua, e.g. `focmd rcon -e 'rcon.print(game.tick)'` |
+| `focmd rcon -` | Execute Lua read from stdin (also used when stdin is piped and no path is given) |
 | `focmd prcon <delay> <path>` | Execute Lua file on a repeating timer |
 | `focmd lrcon <path>` | Execute via local NATS (localhost) |
 

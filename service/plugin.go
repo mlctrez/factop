@@ -134,6 +134,11 @@ func (pm *PluginManager) Startup() error {
 		return fmt.Errorf("subscribing to factop.plugin.deploy: %w", err)
 	}
 
+	// Stop plugins whenever Factorio goes down (stop, restart, set-version,
+	// softmod apply, crash). They are auto-started again by stdoutMonitor when
+	// the RCON startup marker is seen on the next start.
+	pm.Factorio.OnStop(pm.stopAllPlugins)
+
 	pm.Info("plugin manager started", "plugins", len(pm.registry.Plugins))
 
 	// If Factorio is already running (e.g. it started before this subscription
@@ -203,7 +208,8 @@ func (pm *PluginManager) handleCommand(msg *nats.Msg) {
 }
 
 // stdoutMonitor watches factorio.stdout for the RCON startup marker to trigger
-// auto-start of enabled plugins, and detects server shutdown to stop plugins.
+// auto-start of enabled plugins. Stopping plugins when the server goes down is
+// handled by the Factorio stop hook registered in Startup.
 func (pm *PluginManager) stdoutMonitor(msg *nats.Msg) {
 	line := string(msg.Data)
 
@@ -240,6 +246,7 @@ func (pm *PluginManager) stdoutMonitor(msg *nats.Msg) {
 }
 
 // autoStartPlugins starts all enabled plugins in registration order.
+// Plugins that are already starting or running are skipped.
 func (pm *PluginManager) autoStartPlugins() {
 	pm.mu.Lock()
 	plugins := make([]PluginEntry, len(pm.registry.Plugins))
@@ -250,10 +257,43 @@ func (pm *PluginManager) autoStartPlugins() {
 		if !p.Enabled {
 			continue
 		}
+		if state := pm.pluginState(p.Name); state == PluginRunning || state == PluginStarting {
+			pm.Info("auto-start skipping plugin already active", "name", p.Name, "state", state.String())
+			continue
+		}
 		if err := pm.startPlugin(p.Name); err != nil {
 			pm.Error("auto-start plugin failed", "name", p.Name, "error", err)
 		}
 	}
+}
+
+// pluginState returns the current state of the named plugin instance, or
+// PluginStopped if it has never been started.
+func (pm *PluginManager) pluginState(name string) PluginState {
+	pm.mu.Lock()
+	inst, ok := pm.instances[name]
+	pm.mu.Unlock()
+	if !ok {
+		return PluginStopped
+	}
+	inst.mu.Lock()
+	defer inst.mu.Unlock()
+	return inst.state
+}
+
+// factorioDown reports whether the Factorio server is stopped, stopping or
+// errored, in which case plugins should not be (re)started.
+func (pm *PluginManager) factorioDown() bool {
+	if pm.Factorio == nil {
+		return false
+	}
+	pm.Factorio.mu.Lock()
+	defer pm.Factorio.mu.Unlock()
+	switch pm.Factorio.state {
+	case StateStopped, StateStopping, StateError:
+		return true
+	}
+	return false
 }
 
 // stopAllPlugins stops all running plugins in reverse registration order.
@@ -430,6 +470,11 @@ func (pm *PluginManager) processMonitor(inst *pluginInstance) {
 	for attempt, delay := range backoffs {
 		pm.Info("plugin restart attempt", "name", name, "attempt", attempt+1, "delay", delay)
 		time.Sleep(delay)
+		if pm.factorioDown() {
+			// Auto-start will bring the plugin back when Factorio is running again.
+			pm.Info("factorio is down, abandoning plugin restart", "name", name)
+			return
+		}
 		if err := pm.startPlugin(name); err != nil {
 			pm.Error("plugin restart failed", "name", name, "attempt", attempt+1, "error", err)
 			continue

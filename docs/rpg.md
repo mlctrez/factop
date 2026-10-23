@@ -43,6 +43,8 @@ Use this stack; do not redesign it.
 **Events you already receive:**  
 `move`, `player_joined` / `left` / `died` / `respawned`, `entity_built` / `mined` / `died`, `tile_built` / `mined`, `resource_depleted`, `surface_created` / `deleted`, `game_tick`.
 
+**Companions:** `/merlin` (softmod `companion.lua`) summons a Merlin character that walks after its owner, driven by an `on_nth_tick` handler in the softmod (no RCON). `pluginexample/merlin` tracks who owns which companion from the `companion_*` events. See `merlin_plan.md`.
+
 **What is missing for an RPG:** a real story plugin, durable quest state, richer “change the world” helpers, and a few more events (research, chat). World changes already work via `ctx.Rcon("/sc …")`; you can ship content with that and refine later.
 
 ---

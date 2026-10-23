@@ -6,6 +6,33 @@
 
 ---
 
+## 0. Update (v2): follow moved into the softmod
+
+v1 (plugin `OnMove` + RCON, sections 2.3/3/6 below) made Merlin lurch every
+~2 tiles. v2 implements **approach A** from 2.2:
+
+- `softmod/factop/companion.lua` registers `on_nth_tick[3]` (20x/sec). For each
+  companion it compares Merlin to the owner's `physical_position` and sets
+  `walking_state` with an 8-way direction, so he actually walks (animated).
+- Hysteresis: a walking Merlin stops within **2** tiles; an idle Merlin only
+  starts again when the owner is more than **4** tiles away.
+- Teleport fallback (via `find_non_colliding_position`): owner more than **20**
+  tiles away on the same surface, or Merlin stuck (barely moving) for **60**
+  ticks while trying to walk.
+- Owner offline, dead/respawning (physical controller not `character`), or on
+  another surface: Merlin stops and waits (characters can't teleport across
+  surfaces); following resumes when the owner is back.
+- Entity gone without `on_entity_died`, or owner removed → cleanup +
+  `companion_dismissed`. Death still emits `companion_died`.
+- The merlin plugin no longer subscribes to `OnMove` or sends RCON; it only
+  tracks the player → unit_number mapping and logs lifecycle events.
+- Pure follow math (`direction_for`, `follow_decision`) is unit-tested in
+  `softmod/testdata/companion_test.lua` (run by `go test ./softmod/`).
+
+The rest of this document is the original v1 handoff, kept for history.
+
+---
+
 ## 1. Product goal
 
 Add a **new factop plugin** so a player can **summon an NPC named Merlin** who **follows them** around the map.
@@ -202,7 +229,7 @@ Example wire:
 ## 9. Out of scope (v1)
 
 - Custom Merlin graphics / non-`character` prototype.
-- Softmod nth_tick smooth pathfinding (possible v2).
+- Softmod nth_tick smooth follow (done in v2, see section 0; still no real pathfinding).
 - Chat NLP summon; combat AI; dialogue trees.
 - Fire/UDP outgoing path.
 - Changing global move threshold for everyone.

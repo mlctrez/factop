@@ -80,3 +80,36 @@ func TestRconPayload(t *testing.T) {
 		})
 	}
 }
+
+func TestConsoleCommand(t *testing.T) {
+	cases := []struct {
+		name    string
+		args    []string
+		want    string
+		wantErr string
+	}{
+		{name: "single", args: []string{"/bans"}, want: "/bans"},
+		{name: "whitelist get", args: []string{"/whitelist", "get"}, want: "/whitelist get"},
+		{name: "config set joined", args: []string{"/config", "set", "max-players", "10"}, want: "/config set max-players 10"},
+		{name: "quoted single arg", args: []string{" /mutes "}, want: "/mutes"},
+		{name: "lua-capable command rejected", args: []string{"/server-save"}, wantErr: "not allowed"},
+		{name: "kick rejected", args: []string{"/kick", "bob", "griefing"}, wantErr: "not allowed"},
+		{name: "players rejected", args: []string{"/players"}, wantErr: "not allowed"},
+		{name: "no args", wantErr: "usage: console"},
+		{name: "blank", args: []string{" "}, wantErr: "usage: console"},
+		{name: "chat text rejected", args: []string{"hello"}, wantErr: "must start with /"},
+		{name: "multi-line rejected", args: []string{"/bans\n/mutes"}, wantErr: "single line"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := consoleCommand(tc.args)
+			if tc.wantErr != "" {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tc.wantErr)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, got)
+		})
+	}
+}

@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mlctrez/factop/console"
 	"github.com/mlctrez/factop/softmod"
 	"github.com/nats-io/nats.go"
 )
@@ -49,6 +50,8 @@ func main() {
 		err = Rcon()
 	case "lrcon":
 		err = LRcon()
+	case "console":
+		err = Console()
 	case "plugin":
 		err = Plugin()
 	default:
@@ -74,6 +77,7 @@ func printUsage() {
 	fmt.Println("  rcon -            - Send Lua read from stdin (also used when stdin is piped and no path is given)")
 	fmt.Println("  rcon -e <lua...>  - Send inline Lua; remaining args are joined with spaces")
 	fmt.Println("  lrcon <path>      - Send RCON command to local RCON via NATS")
+	fmt.Println("  console <cmd...>  - Run a console command with no Lua equivalent (/whitelist, /config, /bans, /banlist, /mutes); use rcon for everything else")
 	fmt.Println("  plugin <sub> ...  - Manage plugins (register, unregister, start, stop, restart, status, deploy, rollback, versions, version-remove, list)")
 }
 
@@ -323,6 +327,45 @@ func sendRcon(src []byte) (err error) {
 	}
 	defer conn.Close()
 	return sendMessage(conn, "factop.rcon", rconPayload(src))
+}
+
+// consoleSubject must match service.ConsoleSubject.
+const consoleSubject = "factop.rcon.console"
+
+// Console sends a plain Factorio console command such as "/whitelist get" or
+// "/config get max-players" through RCON without the /sc Lua wrapping used by the rcon command.
+// Only commands with no Lua equivalent are allowed (see console.Allowed);
+// everything else should use Lua via the rcon command.
+func Console() (err error) {
+	var command string
+	if command, err = consoleCommand(os.Args[2:]); err != nil {
+		return err
+	}
+	var conn *nats.Conn
+	if conn, err = nats.Connect(fmt.Sprintf("nats://%s", Host)); err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	err = sendMessage(conn, consoleSubject, []byte(command))
+	if errors.Is(err, nats.ErrNoResponders) {
+		// Older factop without the console subject: factop.rcon also forwards
+		// verbatim but only returns the last output line.
+		fmt.Fprintln(os.Stderr, "warning: factop has no", consoleSubject, "handler; falling back to factop.rcon (only the last output line is returned)")
+		err = sendMessage(conn, "factop.rcon", []byte(command))
+	}
+	return err
+}
+
+// consoleCommand joins the console arguments into a single command line and
+// checks it against console.Allowed, so only commands with no Lua equivalent
+// are sent.
+func consoleCommand(args []string) (string, error) {
+	command := strings.TrimSpace(strings.Join(args, " "))
+	if command == "" {
+		return "", fmt.Errorf("usage: console <command...>, allowed: %s (use rcon -e for everything else)", strings.Join(console.AllowedNames(), ", "))
+	}
+	return console.Validate(command)
 }
 
 func LRcon() (err error) {

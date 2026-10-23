@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -69,6 +70,12 @@ type Factorio struct {
 	state ServerState
 	done  chan struct{} // closed by processMonitor when the process exits
 
+	// stopHooks are invoked (without f.mu held) whenever the server goes
+	// down: before the interrupt is sent on a graceful Shutdown (which also
+	// covers Restart, Reset, set-version and softmod apply), and after an
+	// unexpected process exit. Guarded by f.mu.
+	stopHooks []func()
+
 	cmd        *exec.Cmd
 	stdErrPipe io.ReadCloser
 	stdOutPipe io.ReadCloser
@@ -88,6 +95,32 @@ func (f *Factorio) transition(to ServerState) error {
 		return nil
 	}
 	return fmt.Errorf("invalid state transition from %s to %s", from.String(), to.String())
+}
+
+// OnStop registers fn to be called whenever the Factorio server stops or
+// restarts. On a graceful Shutdown the hooks run synchronously after the state
+// moves to Stopping and before the process is signalled, so dependents can
+// shut down while the server is still up. On an unexpected exit they run after
+// the state moves to Error. Hooks are called without f.mu held and must not
+// call back into Shutdown/Restart.
+func (f *Factorio) OnStop(fn func()) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.stopHooks = append(f.stopHooks, fn)
+}
+
+// runStopHooks invokes the registered stop hooks. Must be called without f.mu held.
+func (f *Factorio) runStopHooks(reason string) {
+	f.mu.Lock()
+	hooks := slices.Clone(f.stopHooks)
+	f.mu.Unlock()
+	if len(hooks) == 0 {
+		return
+	}
+	f.Info("running stop hooks", "reason", reason, "count", len(hooks))
+	for _, hook := range hooks {
+		hook()
+	}
 }
 
 func (f *Factorio) binary() string {
@@ -269,6 +302,9 @@ func (f *Factorio) Shutdown() error {
 	done := f.done
 	f.mu.Unlock()
 
+	// Let dependents (e.g. plugins) stop while the server is still reachable.
+	f.runStopHooks("shutdown")
+
 	var errs []error
 	if f.cmd.Process != nil {
 		if err := f.cmd.Process.Signal(os.Interrupt); err != nil {
@@ -389,15 +425,15 @@ func (f *Factorio) processMonitor() {
 	}
 
 	f.mu.Lock()
-	defer f.mu.Unlock()
 
 	// Signal waiters that the process has exited.
 	if f.done != nil {
 		close(f.done)
 	}
 
+	unexpected := false
 	if f.state == StateStopping {
-		// Clean shutdown — transition to Stopped
+		// Clean shutdown — transition to Stopped. Stop hooks already ran in Shutdown.
 		if transErr := f.transition(StateStopped); transErr != nil {
 			f.Error("process monitor transition error", "error", transErr)
 		}
@@ -409,6 +445,12 @@ func (f *Factorio) processMonitor() {
 		if transErr := f.transition(StateError); transErr != nil {
 			f.Error("process monitor transition error", "error", transErr)
 		}
+		unexpected = true
+	}
+	f.mu.Unlock()
+
+	if unexpected {
+		f.runStopHooks("unexpected exit")
 	}
 }
 

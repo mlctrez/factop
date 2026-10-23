@@ -45,7 +45,15 @@ All commands use NATS request/reply. The CLI in `cmd/main.go` wraps them.
 | `focmd rcon -` | Execute Lua read from stdin (also used when stdin is piped and no path is given) |
 | `focmd prcon <delay> <path>` | Execute Lua file on a repeating timer |
 | `focmd lrcon <path>` | Execute via local NATS (localhost) |
-| `focmd console <cmd...>` | Send a plain console command such as `/players`, `/version`, `/admins`, `/time` verbatim (no Lua wrapping); returns all output lines |
+| `focmd console <cmd...>` | Run a built-in admin or maintenance console command by hand, such as `/server-save`, `/kick`, `/ban`, `/unban`, `/whitelist` or `/config`, verbatim (no Lua wrapping); returns all output lines |
+
+`focmd console` is meant for manual admin and maintenance from the CLI. Its output is plain human-readable text. For anything that reads game state or feeds a script or plugin (players, admins, version, tick and so on), use Lua through `focmd rcon` (or the `factop.rcon` subject) and return structured data, for example:
+
+```sh
+focmd rcon -e 'rcon.print(helpers.table_to_json({tick = game.tick, players = #game.connected_players}))'
+```
+
+`/sc` runs Lua silently, so it is not echoed to players. Commands that change state, such as `/kick`, `/ban` or `/promote`, still announce their effects in game the same way as when an admin types them.
 
 ### Softmod
 

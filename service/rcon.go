@@ -46,9 +46,11 @@ func (r *Rcon) Shutdown() error {
 
 var IgnorePattern = regexp.MustCompile(`(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) \[(\w+)] (.+)`)
 
-// ConsoleSubject receives plain Factorio console commands (e.g. "/players")
+// ConsoleSubject receives plain Factorio console commands (e.g. "/server-save")
 // that are forwarded to RCON verbatim. Unlike factop.rcon, every non-console
-// output line is returned, joined with newlines.
+// output line is returned, joined with newlines. It is meant for manual admin
+// and maintenance commands; plugins and scripts that need game data should use
+// factop.rcon with "/sc" Lua and return JSON via helpers.table_to_json.
 const ConsoleSubject = "factop.rcon.console"
 
 // handle executes msg.Data via RCON verbatim and replies with the last output

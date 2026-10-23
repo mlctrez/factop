@@ -89,6 +89,8 @@ func TestConsoleCommand(t *testing.T) {
 		wantErr string
 	}{
 		{name: "single", args: []string{"/players"}, want: "/players"},
+		{name: "server save", args: []string{"/server-save"}, want: "/server-save"},
+		{name: "kick with reason", args: []string{"/kick", "bob", "griefing"}, want: "/kick bob griefing"},
 		{name: "time", args: []string{"/time"}, want: "/time"},
 		{name: "multiple args joined", args: []string{"/admins", "list"}, want: "/admins list"},
 		{name: "quoted single arg", args: []string{" /version "}, want: "/version"},

@@ -76,7 +76,7 @@ func printUsage() {
 	fmt.Println("  rcon -            - Send Lua read from stdin (also used when stdin is piped and no path is given)")
 	fmt.Println("  rcon -e <lua...>  - Send inline Lua; remaining args are joined with spaces")
 	fmt.Println("  lrcon <path>      - Send RCON command to local RCON via NATS")
-	fmt.Println("  console <cmd...>  - Send a plain console command (e.g. /players) via RCON, no Lua wrapping")
+	fmt.Println("  console <cmd...>  - Run an admin/maintenance console command (e.g. /server-save, /kick) via RCON, no Lua wrapping; use rcon for structured reads")
 	fmt.Println("  plugin <sub> ...  - Manage plugins (register, unregister, start, stop, restart, status, deploy, rollback, versions, version-remove, list)")
 }
 
@@ -331,8 +331,10 @@ func sendRcon(src []byte) (err error) {
 // consoleSubject must match service.ConsoleSubject.
 const consoleSubject = "factop.rcon.console"
 
-// Console sends a plain Factorio console command such as "/players" through
-// RCON without the /sc Lua wrapping used by the rcon command.
+// Console sends a plain Factorio console command such as "/server-save" or
+// "/kick" through RCON without the /sc Lua wrapping used by the rcon command.
+// It is intended for manual admin and maintenance use from the CLI; output is
+// plain text, so structured reads should use Lua via the rcon command instead.
 func Console() (err error) {
 	var command string
 	if command, err = consoleCommand(os.Args[2:]); err != nil {
@@ -359,7 +361,7 @@ func Console() (err error) {
 func consoleCommand(args []string) (string, error) {
 	command := strings.TrimSpace(strings.Join(args, " "))
 	if command == "" {
-		return "", errors.New("usage: console <command...>, e.g. console /players")
+		return "", errors.New("usage: console <command...>, e.g. console /server-save (use rcon -e for structured reads)")
 	}
 	if strings.ContainsAny(command, "\r\n") {
 		return "", errors.New("console command must be a single line")

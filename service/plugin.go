@@ -433,6 +433,26 @@ func (pm *PluginManager) restartPlugin(name string) error {
 	return pm.startPlugin(name)
 }
 
+// unexpectedExitGrace is how long processMonitor waits for the service
+// context to be cancelled before reporting a plugin exit as unexpected.
+var unexpectedExitGrace = time.Second
+
+// describeExit renders a process exit for logging: "code:N" for a normal exit
+// or "signal:NAME" when the process was killed by a signal.
+func describeExit(err error) string {
+	if err == nil {
+		return "code:0"
+	}
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) {
+		if ws, ok := exitErr.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+			return "signal:" + ws.Signal().String()
+		}
+		return "code:" + strconv.Itoa(exitErr.ExitCode())
+	}
+	return "error:" + err.Error()
+}
+
 // processMonitor waits for a plugin process to exit and handles restart logic.
 func (pm *PluginManager) processMonitor(inst *pluginInstance) {
 	err := inst.cmd.Wait()
@@ -453,23 +473,38 @@ func (pm *PluginManager) processMonitor(inst *pluginInstance) {
 	inst.mu.Lock()
 	_ = inst.transition(PluginErrored)
 	inst.mu.Unlock()
-
-	exitCode := -1
-	if err != nil {
-		var exitErr *exec.ExitError
-		if errors.As(err, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		}
-	}
-	pm.Error("plugin exited unexpectedly", "name", name, "version", version, "exitCode", exitCode)
-
 	close(inst.done)
+
+	exit := describeExit(err)
+
+	// When systemd stops factop it signals every process in the unit's
+	// cgroup at once (KillMode=control-group), so a plugin can exit before
+	// factop's own signal handler has cancelled the service context and the
+	// PluginManager has marked it Stopping. Give the shutdown a moment to
+	// become visible before treating the exit as a crash.
+	select {
+	case <-pm.Context.Done():
+		pm.Info("plugin exited during service shutdown", "name", name, "version", version, "exit", exit)
+		return
+	case <-time.After(unexpectedExitGrace):
+	}
+
+	pm.Error("plugin exited unexpectedly", "name", name, "version", version, "exit", exit)
 
 	// Attempt restart with exponential backoff: 2s, 4s, 8s (max 3 attempts).
 	backoffs := []time.Duration{2 * time.Second, 4 * time.Second, 8 * time.Second}
 	for attempt, delay := range backoffs {
 		pm.Info("plugin restart attempt", "name", name, "attempt", attempt+1, "delay", delay)
-		time.Sleep(delay)
+		select {
+		case <-pm.Context.Done():
+			pm.Info("service shutting down, abandoning plugin restart", "name", name)
+			return
+		case <-time.After(delay):
+		}
+		if pm.Context.Err() != nil {
+			pm.Info("service shutting down, abandoning plugin restart", "name", name)
+			return
+		}
 		if pm.factorioDown() {
 			// Auto-start will bring the plugin back when Factorio is running again.
 			pm.Info("factorio is down, abandoning plugin restart", "name", name)

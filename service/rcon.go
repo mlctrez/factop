@@ -148,10 +148,14 @@ func (r *Rcon) stdoutMonitor(msg *nats.Msg) {
 		// use a nonzero command id to skip getting console messages in rcon output
 		opTwo := rcon.SetExeCommandId(10)
 
-		r.conn, err = rcon.Dial(r.Factorio.RconBind, r.Factorio.RconPassword, opOne, opTwo)
+		conn, err := rcon.Dial(r.Factorio.RconBind, r.Factorio.RconPassword, opOne, opTwo)
 		if err != nil {
+			// Dial may return a closed, non-nil conn on auth failure, so discard it
+			// and leave r.conn nil; execute then reports "rcon not connected".
 			r.Error("error dialing rcon", "error", err)
+			return
 		}
+		r.conn = conn
 
 		// these will suppress the disable achievements warning when loading a brand
 		// new save file so they don't show up in the user's console messaging or cause issues

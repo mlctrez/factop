@@ -197,3 +197,70 @@ func TestRconFilterOutput(t *testing.T) {
 	assert.Empty(t, r.filterOutput(""))
 	assert.Empty(t, r.filterOutput("2026-10-23 12:00:00 [CHAT] alice: hi\n"))
 }
+
+// newMonitorRcon returns an Rcon wired for stdoutMonitor with RconBind set to
+// address, plus a client NATS connection.
+func newMonitorRcon(t *testing.T, address string) (*Rcon, *nats.Conn) {
+	t.Helper()
+	logger := *slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	ns, err := server.NewServer(&server.Options{Host: "127.0.0.1", Port: -1, NoSigs: true, NoLog: true})
+	require.NoError(t, err)
+	go ns.Start()
+	require.True(t, ns.ReadyForConnections(5*time.Second))
+	t.Cleanup(ns.Shutdown)
+
+	serviceConn, err := nats.Connect(ns.ClientURL())
+	require.NoError(t, err)
+	t.Cleanup(serviceConn.Close)
+
+	r := &Rcon{
+		Logger:   logger,
+		Nats:     &Nats{Logger: logger, conn: serviceConn},
+		Factorio: &Factorio{RconBind: address, RconPassword: "pw"},
+	}
+	require.NoError(t, r.Startup())
+	t.Cleanup(func() { _ = r.Shutdown() })
+
+	client, err := nats.Connect(ns.ClientURL())
+	require.NoError(t, err)
+	t.Cleanup(client.Close)
+	return r, client
+}
+
+func startupLine() *nats.Msg {
+	return &nats.Msg{Data: []byte("   1.234 Info RemoteCommandProcessor.cpp:133: " + RconStartupMarker + ":127.0.0.1:27015")}
+}
+
+func TestRconMonitorDialFailureDoesNotPanic(t *testing.T) {
+	// Grab a free port and close it so the dial is refused.
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	address := l.Addr().String()
+	require.NoError(t, l.Close())
+
+	r, nc := newMonitorRcon(t, address)
+	assert.NotPanics(t, func() { r.stdoutMonitor(startupLine()) })
+	assert.Nil(t, r.conn)
+
+	for _, subject := range []string{"factop.rcon", ConsoleSubject} {
+		_, errHdr := request(t, nc, subject, "/bans")
+		assert.Equal(t, "rcon not connected", errHdr, subject)
+	}
+}
+
+func TestRconMonitorDialSuccess(t *testing.T) {
+	fake := newFakeRconServer(t, fakeFactorioResponse)
+	r, nc := newMonitorRcon(t, fake.listener.Addr().String())
+	r.stdoutMonitor(startupLine())
+	require.NotNil(t, r.conn)
+
+	data, errHdr := request(t, nc, "factop.rcon", "/sc rcon.print(game.tick)")
+	assert.Empty(t, errHdr)
+	assert.Equal(t, "12345", data)
+	assert.Equal(t, []string{
+		"/sc rcon.print(\"disabling achievements\")",
+		"/sc rcon.print(\"disabling achievements\")",
+		"/sc rcon.print(game.tick)",
+	}, fake.commands())
+}

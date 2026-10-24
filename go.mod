@@ -2,13 +2,10 @@ module github.com/mlctrez/factop
 
 go 1.25.0
 
-replace github.com/mlctrez/rcon => ../rcon
-
 require (
 	github.com/google/uuid v1.6.0
 	github.com/kardianos/service v1.2.4
 	github.com/mlctrez/bind v1.1.0
-	github.com/mlctrez/rcon v1.0.1
 	github.com/mlctrez/servicego v1.4.10
 	github.com/nats-io/nats-server/v2 v2.12.6
 	github.com/nats-io/nats.go v1.50.0
@@ -21,7 +18,6 @@ require (
 	github.com/antithesishq/antithesis-sdk-go v0.7.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-tpm v0.9.8 // indirect
-	github.com/gorcon/rcon v1.4.0 // indirect
 	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/minio/highwayhash v1.0.4 // indirect
 	github.com/nats-io/jwt/v2 v2.8.1 // indirect

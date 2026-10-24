@@ -25,6 +25,6 @@ CGO_ENABLED=0 go test -v -run 'TestLuaSyntax|TestCompanionLua' ./softmod  # conf
 
 ## Rules
 
-- Never modify an existing Factorio save without mlctrez's explicit agreement.
-- Never deploy without mlctrez's go-ahead. When asking, say whether the deploy
+- Never modify an existing Factorio save without the repository owner's explicit agreement.
+- Never deploy without the repository owner's go-ahead. When asking, say whether the deploy
   includes a softmod deploy.

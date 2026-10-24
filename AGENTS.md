@@ -4,12 +4,11 @@ Repo-specific rules for agents and contributors working on factop.
 
 ## Setup
 
-- `go.mod` has `replace github.com/mlctrez/rcon => ../rcon`. The fork's own
-  `go.mod` still declares `github.com/gorcon/rcon`, so the module cannot be
-  fetched normally; a local checkout is required.
-- Clone `mlctrez/rcon` next to this repo (`../rcon`) on branch
-  `command_id_settings` (same commit as tag `v1.0.1`). factop uses
-  `rcon.SetExeCommandId`, which is not on rcon's `master`.
+- The RCON client lives in `internal/rcon` (derived from github.com/gorcon/rcon,
+  MIT licensed; see `internal/rcon/LICENSE`). No separate rcon checkout or
+  `go.mod` replace is needed. `service/rcon.go` relies on its
+  `SetExeCommandId` option (exec command id 10), which upstream gorcon/rcon
+  does not have.
 - The softmod Lua tests need `lua5.2` and `luac5.2` on `PATH` (Factorio embeds
   Lua 5.2; 5.3/5.4 are used as fallbacks). `TestLuaSyntax` and
   `TestCompanionLua` are skipped, not failed, when no Lua is found, so make

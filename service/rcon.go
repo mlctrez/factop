@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	"github.com/mlctrez/factop/console"
+	"github.com/mlctrez/factop/internal/rcon"
 	"sync"
 
 	"github.com/mlctrez/bind"
-	"github.com/mlctrez/rcon"
 	"github.com/nats-io/nats.go"
 )
 
